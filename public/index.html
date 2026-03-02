@@ -3,20 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TiGrIS — Coming Soon</title>
-  <meta name="description" content="Something is tiling into place.">
+  <title>TiGrIS — Tiled Graph Inference Scheduler</title>
+  <meta name="description" content="Run your ML model where nothing else fits. A tiling compiler for deploying ML models on microcontrollers.">
+  <meta property="og:title" content="TiGrIS">
+  <meta property="og:description" content="Run your ML model where nothing else fits.">
+  <meta property="og:type" content="website">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --bg: #06090c;
-      --tile: #0e1419;
-      --tile-glow: #1a2e24;
+      --bg: #0a0e13;
+      --tile: #12171e;
+      --tile-glow: #1a2a24;
       --accent: #32be78;
       --accent-dim: #1a6b42;
-      --text: #c9d1d9;
-      --text-dim: rgba(201, 209, 217, 0.35);
-      --gap: 3px;
+      --text: #d0d7de;
+      --text-dim: rgba(208, 215, 222, 0.4);
+      --gap: 4px;
     }
 
     body {
@@ -43,20 +46,14 @@
       transition: background 1.5s ease, box-shadow 1.5s ease;
     }
 
-    .tile:hover {
-      background: var(--tile-glow);
-      box-shadow: inset 0 0 12px rgba(50, 190, 120, 0.08);
-      transition: background 0.1s ease, box-shadow 0.1s ease;
-    }
-
     .tile.lit {
-      background: #131c18;
-      box-shadow: inset 0 0 12px rgba(50, 190, 120, 0.04);
+      background: #161f1b;
+      box-shadow: inset 0 0 16px rgba(50, 190, 120, 0.03);
     }
 
     .tile.bright {
       background: var(--tile-glow);
-      box-shadow: inset 0 0 16px rgba(50, 190, 120, 0.06);
+      box-shadow: inset 0 0 20px rgba(50, 190, 120, 0.04);
     }
 
     /* ── Logo tiles — grid cells that span multiple rows/cols ── */
@@ -98,18 +95,6 @@
     }
     .logo-tile.revealed { animation: logoBreathe 5s ease-in-out infinite; }
 
-    /* Wave / flicker states on logo tiles */
-    .logo-tile.lit {
-      background: var(--tile-glow);
-      box-shadow: inset 0 0 24px rgba(50, 190, 120, 0.1);
-    }
-
-    .logo-tile.bright {
-      background: var(--accent-dim);
-      box-shadow: inset 0 0 30px rgba(50, 190, 120, 0.2), 0 0 16px rgba(50, 190, 120, 0.08);
-    }
-
-    .logo-tile.bright svg path { opacity: 1; }
 
     .logo-tile:hover {
       background: #122a1e;
@@ -124,151 +109,74 @@
       transition: opacity 0.15s ease, fill 0.15s ease;
     }
 
-    /* Tooltip on logo tile hover */
+    /* Labels inside logo tiles */
     .logo-tile {
       position: relative;
+      flex-direction: column;
+      gap: 0;
+      padding: 8% 12%;
     }
 
     .logo-tile::after {
       content: attr(data-label);
-      position: absolute;
-      bottom: -28px;
-      left: 50%;
-      transform: translateX(-50%) translateY(4px);
       font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
       font-size: 0.65rem;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--accent);
       white-space: nowrap;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.2s ease, transform 0.2s ease;
+      margin-top: 4px;
     }
 
-    .logo-tile:hover::after {
-      opacity: 0.8;
-      transform: translateX(-50%) translateY(0);
+    .logo-tile.revealed::after {
+      opacity: 0.4;
     }
 
-    /* ── Mouse-follow radial glow ── */
-    .tile-grid::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(
-        ellipse 600px 600px at var(--rx, 50%) var(--ry, 50%),
-        rgba(50, 190, 120, 0.04) 0%,
-        transparent 70%
-      );
-      pointer-events: none;
-    }
-
-    /* ── Content overlay ── */
-    .content {
-      position: fixed;
-      inset: 0;
+    /* ── Grid-aligned content overlay ── */
+    .grid-overlay {
       z-index: 2;
       display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
       align-items: center;
-      padding-bottom: 10vh;
-      text-align: center;
+      justify-content: center;
       pointer-events: none;
     }
-    .content > * { pointer-events: auto; }
 
-    .mystery {
-      font-size: 0.85rem;
+    .tagline {
+      font-size: 1.15rem;
       color: var(--text);
-      max-width: 380px;
       line-height: 1.7;
       font-weight: 300;
+      text-align: center;
+      white-space: nowrap;
       opacity: 0;
     }
 
-    .mystery span {
-      color: var(--accent);
-      font-weight: 500;
-    }
-
-    .divider {
-      width: 48px;
-      height: 1px;
-      background: var(--accent-dim);
-      margin: 2rem auto;
+    .coming-soon {
+      font-size: 0.95rem;
+      color: var(--text);
       opacity: 0;
-    }
-
-    .cta {
-      display: inline-block;
-      font-size: 0.75rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--accent);
-      text-decoration: none;
-      padding: 0.6rem 1.6rem;
-      border: 1px solid var(--accent-dim);
-      border-radius: 2px;
-      opacity: 0;
-      transition: border-color 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    .cta:hover {
-      border-color: var(--accent);
-      box-shadow: 0 0 20px rgba(50, 190, 120, 0.15);
+      text-align: center;
+      font-weight: 300;
     }
 
     @keyframes fadeup {
-      from { opacity: 0; transform: translateY(12px); }
+      from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
-
-    .text-visible .mystery { animation: fadeup 1s ease forwards; }
-    .text-visible .divider { animation: fadeup 1s ease 0.3s forwards; }
-    .text-visible .cta     { animation: fadeup 1s ease 0.6s forwards; }
-
-    /* ── Corner markers ── */
-    .corner {
-      position: fixed;
-      width: 20px;
-      height: 20px;
-      z-index: 3;
-      opacity: 0.15;
-    }
-    .corner::before, .corner::after {
-      content: "";
-      position: absolute;
-      background: var(--accent);
-    }
-    .corner-tl { top: 16px; left: 16px; }
-    .corner-tl::before { top: 0; left: 0; width: 20px; height: 1px; }
-    .corner-tl::after  { top: 0; left: 0; width: 1px; height: 20px; }
-    .corner-tr { top: 16px; right: 16px; }
-    .corner-tr::before { top: 0; right: 0; width: 20px; height: 1px; }
-    .corner-tr::after  { top: 0; right: 0; width: 1px; height: 20px; }
-    .corner-bl { bottom: 16px; left: 16px; }
-    .corner-bl::before { bottom: 0; left: 0; width: 20px; height: 1px; }
-    .corner-bl::after  { bottom: 0; left: 0; width: 1px; height: 20px; }
-    .corner-br { bottom: 16px; right: 16px; }
-    .corner-br::before { bottom: 0; right: 0; width: 20px; height: 1px; }
-    .corner-br::after  { bottom: 0; right: 0; width: 1px; height: 20px; }
   </style>
 </head>
 <body>
 
   <div class="tile-grid" id="grid"></div>
 
-  <div class="corner corner-tl"></div>
-  <div class="corner corner-tr"></div>
-  <div class="corner corner-bl"></div>
-  <div class="corner corner-br"></div>
-
-  <div class="content" id="content">
-    <p class="mystery">Run your ML model where <span>nothing else fits.</span></p>
-    <div class="divider"></div>
-    <a href="mailto:signup@tigris-ml.dev?subject=TiGrIS%20Early%20Access&amp;body=Hi%2C%20I'd%20like%20early%20access%20to%20TiGrIS.%0A%0ATarget%20device%3A%20%0AUse%20case%3A%20" class="cta">Sign up for early access</a>
+  <!-- Tagline and coming soon — positioned by JS onto grid rows -->
+  <div id="taglineWrap" class="grid-overlay" style="display:none">
+    <p class="tagline">Run your ML model where nothing else fits.</p>
+  </div>
+  <div id="soonWrap" class="grid-overlay" style="display:none">
+    <p class="coming-soon">Coming soon.</p>
   </div>
 
   <script>
@@ -290,27 +198,28 @@
           'M75 101H203V415H75V516H331V375H339Q346 402 358.5 427.5Q371 453 390.5 472.5Q410 492 438.0 504.0Q466 516 505 516H561V396H455Q397 396 364.0 362.0Q331 328 331 275V101H510V0H75Z|matrix(0.042,0,0,-0.042,153.00,74.0)',
         ],
       },
-      { // I — 1×2
-        spanC: 1, spanR: 2, label: 'Inference',
-        viewBox: '206 14 60 92',
+      { // I — 2×2
+        spanC: 2, spanR: 2, label: 'Inference',
+        viewBox: '213.5 14 45 92',
         paths: [
           'M78 0V98H235V600H78V698H522V600H365V98H522V0Z|matrix(0.042,0,0,-0.042,223.40,74.0)',
         ],
       },
-      { // S — 1×2
-        spanC: 1, spanR: 2, label: 'Scheduler',
-        viewBox: '274 14 60 92',
+      { // S — 2×2
+        spanC: 2, spanR: 2, label: 'Scheduler',
+        viewBox: '281.5 14 45 92',
         paths: [
           'M292 -12Q202 -12 138.5 19.0Q75 50 35 101L114 183Q153 138 198.5 116.5Q244 95 296 95Q356 95 388.0 122.0Q420 149 420 200Q420 242 396.0 263.5Q372 285 315 294L241 306Q144 323 103.0 376.5Q62 430 62 503Q62 603 127.0 656.5Q192 710 307 710Q389 710 448.5 684.0Q508 658 544 613L467 531Q439 564 400.0 583.5Q361 603 308 603Q194 603 194 509Q194 469 218.0 448.0Q242 427 300 417L373 404Q464 387 508.0 337.0Q552 287 552 209Q552 160 535.0 119.5Q518 79 485.0 49.5Q452 20 403.5 4.0Q355 -12 292 -12Z|matrix(0.042,0,0,-0.042,291.40,74.0)',
         ],
       },
     ];
 
-    const LOGO_W = 6; // total columns: 2+2+1+1
+    const LOGO_W = 8; // total columns: 2+2+2+2
     const LOGO_H = 2; // total rows
 
     const grid = document.getElementById('grid');
-    const content = document.getElementById('content');
+    const taglineWrap = document.getElementById('taglineWrap');
+    const soonWrap = document.getElementById('soonWrap');
 
     // tileMap[row][col] → DOM element (0-indexed)
     let tileMap = [];
@@ -338,7 +247,7 @@
 
       // Logo placement: centered, slightly above middle
       const lc = (cols - LOGO_W) / 2;
-      const lr = Math.floor((rows - LOGO_H) / 2) - 1;
+      const lr = Math.floor((rows - LOGO_H) / 2) - 2;
 
       // Place logo tiles
       let cx = lc;
@@ -374,6 +283,20 @@
         cx += lt.spanC;
       }
 
+      // ── Place tagline: skip 1 row after logo, center on next row ──
+      const taglineRow = lr + LOGO_H + 1;
+      taglineWrap.style.gridColumn = `1 / -1`;
+      taglineWrap.style.gridRow = String(taglineRow + 1); // 1-indexed
+      taglineWrap.style.display = '';
+      grid.appendChild(taglineWrap);
+
+      // ── Place coming soon: skip 1 row after tagline ──
+      const soonRow = taglineRow + 2;
+      soonWrap.style.gridColumn = `1 / -1`;
+      soonWrap.style.gridRow = String(soonRow + 1);
+      soonWrap.style.display = '';
+      grid.appendChild(soonWrap);
+
       // Fill remaining cells with regular tiles
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
@@ -407,11 +330,7 @@
               seen.add(el);
 
               if (el.classList.contains('logo-tile')) {
-                el.classList.add('bright');
-                setTimeout(() => {
-                  el.classList.remove('bright');
-                  el.classList.add('revealed');
-                }, 600);
+                el.classList.add('revealed');
               } else {
                 el.classList.add('lit');
                 setTimeout(() => el.classList.remove('lit'), 500 + Math.random() * 400);
@@ -420,7 +339,10 @@
           }
 
           if (d === Math.floor(cols * 0.6)) {
-            content.classList.add('text-visible');
+            document.querySelector('.tagline').style.animation = 'fadeup 1s ease forwards';
+            setTimeout(() => {
+              document.querySelector('.coming-soon').style.animation = 'fadeup 1s ease forwards';
+            }, 400);
           }
         }, d * 35);
       }
@@ -448,6 +370,7 @@
               if (seen.has(el)) continue;
               seen.add(el);
 
+              if (el.classList.contains('logo-tile')) continue;
               const cls = Math.random() > 0.6 ? 'bright' : 'lit';
               el.classList.add(cls);
               setTimeout(() => el.classList.remove('lit', 'bright'),
@@ -470,12 +393,6 @@
         setTimeout(() => el.classList.remove('lit'), 1200 + Math.random() * 2000);
       }
     }
-
-    /* ── Mouse tracking ── */
-    document.addEventListener('mousemove', (e) => {
-      grid.style.setProperty('--rx', e.clientX + 'px');
-      grid.style.setProperty('--ry', e.clientY + 'px');
-    });
 
     buildGrid();
     window.addEventListener('resize', buildGrid);
