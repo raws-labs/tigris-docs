@@ -1,0 +1,37 @@
+---
+// On narrow screens the desktop TOC rail (which hosts the page tools) is hidden
+// and Starlight shows this compact "On this page" bar instead. Overlay the same
+// Edit / Copy / last-updated tools on the right of that bar so they don't vanish.
+import Default from "@astrojs/starlight/components/MobileTableOfContents.astro";
+import PageTools from "./PageTools.astro";
+
+const { toc } = Astro.locals.starlightRoute;
+---
+
+<Default />
+
+{
+  toc && (
+    <div class="mobile-page-tools">
+      <PageTools align="right" />
+    </div>
+  )
+}
+
+<style>
+  /* Sits over the right end of Starlight's fixed mobile TOC bar. An opaque
+     nav-background lets the current-heading label tuck behind it. This whole
+     component is inside Starlight's `lg:sl-hidden` wrapper, so it (and the
+     overlay) disappear on desktop where the rail takes over. */
+  .mobile-page-tools {
+    position: fixed;
+    top: calc(var(--sl-nav-height) - 1px);
+    inset-inline-end: 1rem;
+    height: var(--sl-mobile-toc-height);
+    display: flex;
+    align-items: center;
+    padding-inline-start: 1rem;
+    background: var(--sl-color-bg-nav);
+    z-index: calc(var(--sl-z-index-toc, 4) + 1);
+  }
+</style>

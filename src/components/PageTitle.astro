@@ -1,0 +1,74 @@
+---
+// Overrides Starlight's PageTitle to add a breadcrumb trail (from the sidebar
+// tree) above the title. The page tooling (Edit / Copy) lives at the top of the
+// right-hand TOC instead — see TableOfContents.astro.
+// VersionNotice is rendered by hand (the versions plugin steps aside because we
+// override PageTitle) — it shows the "older version" banner on frozen versions.
+import VersionNotice from "starlight-versions/components/VersionNotice.astro";
+const route = Astro.locals.starlightRoute;
+const { entry } = route;
+const title = entry.data.title;
+
+const pathname = Astro.url.pathname;
+const isBlog = pathname.startsWith("/blog");
+const isBlogIndex = pathname === "/blog/" || pathname === "/blog";
+
+type Item = { label: string; href?: string };
+// Docs have a flat structure, so a breadcrumb is redundant with the sidebar —
+// docs show just the title (last-updated lives in the TOC header). The blog
+// keeps a breadcrumb, which is meaningful there.
+const crumbs: Item[] = isBlog
+  ? isBlogIndex
+    ? []
+    : [{ label: "Blog", href: "/blog/" }]
+  : [];
+---
+
+<VersionNotice />
+
+<div class="page-heading">
+  {
+    isBlog && (
+      <nav class="breadcrumbs" aria-label="Breadcrumb">
+        <a href="/">Home</a>
+        {crumbs.map((c) => (
+          <>
+            <span class="sep" aria-hidden="true">›</span>
+            {c.href ? <a href={c.href}>{c.label}</a> : <span>{c.label}</span>}
+          </>
+        ))}
+      </nav>
+    )
+  }
+  <h1 id="_top">{title}</h1>
+</div>
+
+<style>
+  .breadcrumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+    margin-bottom: 0.5rem;
+  }
+  .breadcrumbs a {
+    color: var(--sl-color-gray-3);
+    text-decoration: none;
+  }
+  .breadcrumbs a:hover {
+    color: var(--sl-color-text-accent);
+  }
+  .breadcrumbs .sep {
+    color: var(--sl-color-gray-5);
+  }
+
+  h1 {
+    margin-top: 0;
+    font-size: var(--sl-text-h1);
+    line-height: var(--sl-line-height-headings);
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+</style>

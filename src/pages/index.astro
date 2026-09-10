@@ -1,0 +1,666 @@
+---
+// Standalone landing page (bespoke full-screen animated tile-grid), ported from
+// the original tigris-web Hugo homepage. Not a Starlight doc — it renders its
+// own full document at "/". Uses the same fonts as the docs (Inter + JetBrains
+// Mono) so there is one font system across the site.
+import "@fontsource-variable/inter/index.css";
+import "@fontsource-variable/jetbrains-mono/index.css";
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiGrIS: Tiled Graph Inference Scheduler</title>
+  <meta name="description" content="Run your ML model where nothing else fits. A tiling compiler for deploying ML models on embedded devices." />
+  <link rel="icon" href="/favicon.ico" sizes="32x32" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" type="image/png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#f8f9fb" />
+  <meta property="og:title" content="TiGrIS: Tiled Graph Inference Scheduler for Embedded Devices" />
+  <meta property="og:description" content="Run your ML model where nothing else fits. TiGrIS is a tiling compiler that deploys ML models onto embedded devices with only kilobytes of RAM and flash." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://tigris-ml.dev/" />
+  <meta property="og:image" content="https://tigris-ml.dev/cover.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="TiGrIS: Tiled Graph Inference Scheduler" />
+  <meta property="og:image:type" content="image/png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="TiGrIS: Tiled Graph Inference Scheduler for Embedded Devices" />
+  <meta name="twitter:description" content="Run your ML model where nothing else fits. TiGrIS deploys ML models onto embedded devices with only kilobytes of RAM and flash." />
+  <meta name="twitter:image" content="https://tigris-ml.dev/cover.png" />
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://www.raws.at/#organization",
+        "name": "RAWS Consulting",
+        "alternateName": "RAWS Labs",
+        "legalName": "RAWS Consulting e.U.",
+        "url": "https://www.raws.at/",
+        "logo": { "@type": "ImageObject", "url": "https://www.raws.at/assets/logo.png" },
+        "vatID": "ATU76498416",
+        "founder": { "@type": "Person", "name": "Dipl.-Ing. Armin Steinhauser, PhD" },
+        "sameAs": ["https://github.com/raws-labs", "https://www.linkedin.com/company/raws-consulting/"]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://tigris-ml.dev/#website",
+        "name": "TiGrIS",
+        "url": "https://tigris-ml.dev/",
+        "inLanguage": "en",
+        "publisher": { "@id": "https://www.raws.at/#organization" }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "TiGrIS",
+        "alternateName": "Tiled Graph Inference Scheduler",
+        "description": "A tiling compiler that deploys ML models onto embedded devices with only kilobytes of RAM and flash.",
+        "url": "https://tigris-ml.dev/",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Cross-platform",
+        "image": "https://tigris-ml.dev/cover.png",
+        "softwareHelp": "https://tigris-ml.dev/getting-started/quickstart/",
+        "codeRepository": "https://github.com/raws-labs/tigris",
+        "license": "https://www.apache.org/licenses/LICENSE-2.0",
+        "isPartOf": { "@id": "https://tigris-ml.dev/#website" },
+        "publisher": { "@id": "https://www.raws.at/#organization" },
+        "author": { "@id": "https://www.raws.at/#organization" }
+      }
+    ]
+  })} />
+  <style is:global>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #f8f9fb;
+      --tile: #eceef2;
+      --tile-border: rgba(0, 0, 0, 0.05);
+      --accent-rgb: 50, 190, 120;
+      --accent: rgb(var(--accent-rgb));
+      --accent-light: #32be78;
+      --accent-bg: #e7f7ef;
+      --tile-glow: #daf3e7;
+      --tile-bright: #bcead3;
+      --text: #1a1a2e;
+      --text-mid: rgba(26, 26, 46, 0.7);
+      --text-dim: rgba(26, 26, 46, 0.3);
+      --gap: 5px;
+    }
+
+    body {
+      font-family: "JetBrains Mono Variable", ui-monospace, monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Grid — fills viewport exactly ── */
+    .tile-grid {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      gap: var(--gap);
+      z-index: 0;
+    }
+
+    /* ── Regular tiles ── */
+    .tile {
+      background: var(--bg);
+      border-radius: 2px;
+      transition: background 0.5s ease, border-color 0.5s ease;
+      border: 1px solid transparent;
+    }
+
+    .tile.visible {
+      background: var(--tile);
+      border-color: var(--tile-border);
+    }
+
+    .tile.lit {
+      background: var(--tile-glow);
+      border-color: rgba(var(--accent-rgb), 0.08);
+      box-shadow: inset 0 0 12px rgba(var(--accent-rgb), 0.04);
+    }
+
+    .tile.bright {
+      background: var(--tile-bright);
+      border-color: rgba(var(--accent-rgb), 0.12);
+      box-shadow: inset 0 0 16px rgba(var(--accent-rgb), 0.06);
+    }
+
+    /* ── Logo tiles ── */
+    .logo-tile {
+      background: var(--bg);
+      border-radius: 3px;
+      border: 2px solid transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 8% 12%;
+      gap: 0;
+      transition: background 1s ease, box-shadow 1s ease, border-color 0.6s ease;
+    }
+
+    .logo-tile svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .logo-tile svg path {
+      fill: var(--accent);
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+
+    /* Revealed state */
+    .logo-tile.revealed {
+      background: #fff;
+      border-color: var(--accent);
+      box-shadow: 0 2px 20px rgba(var(--accent-rgb), 0.18), inset 0 0 20px rgba(var(--accent-rgb), 0.04);
+    }
+
+    .logo-tile.revealed svg path {
+      opacity: 1;
+    }
+
+    @keyframes logoBreathe {
+      0%, 100% { box-shadow: 0 2px 20px rgba(var(--accent-rgb), 0.18), inset 0 0 20px rgba(var(--accent-rgb), 0.04); }
+      50% { box-shadow: 0 2px 28px rgba(var(--accent-rgb), 0.28), inset 0 0 24px rgba(var(--accent-rgb), 0.06); }
+    }
+    .logo-tile.revealed { animation: logoBreathe 6s ease-in-out infinite; }
+
+    .logo-tile:hover {
+      background: var(--tile-glow);
+      border-color: rgba(var(--accent-rgb), 0.4) !important;
+      box-shadow: none;
+      transition: all 0.15s ease;
+    }
+
+    .logo-tile:hover svg path {
+      opacity: 1;
+      fill: var(--accent);
+      transition: all 0.15s ease;
+    }
+
+    /* Wave / flicker states on logo tiles */
+    .logo-tile.lit {
+      background: var(--tile-glow);
+      box-shadow: inset 0 0 20px rgba(var(--accent-rgb), 0.06);
+    }
+
+    .logo-tile.bright {
+      background: var(--accent-light);
+      box-shadow: inset 0 0 24px rgba(var(--accent-rgb), 0.12), 0 0 12px rgba(var(--accent-rgb), 0.04);
+    }
+
+    .logo-tile.bright svg path { opacity: 1; }
+
+    /* Labels beneath logo tiles */
+    .logo-tile::after {
+      content: attr(data-label);
+      font-family: "Inter Variable", "Inter", system-ui, sans-serif;
+      font-size: 0.6rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text);
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      margin-top: 6px;
+    }
+
+    .logo-tile.revealed::after {
+      opacity: 1;
+    }
+
+    /* ── Grid-aligned content overlays ── */
+    .grid-overlay {
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .grid-overlay > * { pointer-events: auto; }
+
+    .tagline {
+      font-family: "Inter Variable", "Inter", system-ui, sans-serif;
+      font-size: 1.3rem;
+      font-weight: 400;
+      color: var(--text);
+      line-height: 1.6;
+      text-align: center;
+      opacity: 0;
+      padding: 0 1.5rem;
+      letter-spacing: -0.01em;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+    }
+
+    .btn-landing {
+      font-family: "JetBrains Mono Variable", ui-monospace, monospace;
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text);
+      text-decoration: none;
+      padding: 0.55rem 1.6rem;
+      background: #fff;
+      border: 1.5px solid rgba(28, 25, 23, 0.12);
+      border-radius: 4px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .btn-landing:hover {
+      border-color: var(--accent);
+      color: var(--text);
+      background: var(--accent-bg);
+      box-shadow: 0 2px 12px rgba(var(--accent-rgb), 0.1);
+      transform: translateY(-1px);
+    }
+
+    .btn-landing:active {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+
+    .btn-landing:focus-visible,
+    .footer-links a:focus-visible {
+      outline: 2px solid var(--text);
+      outline-offset: 3px;
+      box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.45);
+    }
+
+    @media (max-width: 600px) {
+      .tagline { font-size: 1.05rem; }
+      .btn-row { flex-direction: column; gap: 0.5rem; }
+      .btn-landing { font-size: 0.75rem; padding: 0.5rem 1.3rem; }
+    }
+
+    .footer-links {
+      position: fixed;
+      bottom: 1.2rem;
+      left: 0;
+      right: 0;
+      text-align: center;
+      z-index: 3;
+      opacity: 0;
+    }
+
+    .footer-links a {
+      font-family: "JetBrains Mono Variable", ui-monospace, monospace;
+      font-size: 0.7rem;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      color: var(--text-mid);
+      text-decoration: none;
+      margin: 0 1rem;
+      transition: color 0.2s ease;
+    }
+
+    .footer-links a:hover {
+      color: var(--text);
+      background: linear-gradient(
+        transparent 55%,
+        rgba(var(--accent-rgb), 0.35) 55%,
+        rgba(var(--accent-rgb), 0.35) 92%,
+        transparent 92%
+      );
+    }
+
+    @keyframes fadeup {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadein {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .no-js-home {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .no-js-home h2 {
+      font-family: "Inter Variable", "Inter", system-ui, sans-serif;
+      font-weight: 500;
+      color: var(--text);
+      font-size: clamp(2.5rem, 10vw, 5rem);
+      margin-bottom: 1rem;
+    }
+
+    .no-js-home .btn-row {
+      opacity: 1;
+      margin-top: 1.5rem;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  </style>
+</head>
+<body>
+  <main id="main-content">
+    <h1 class="sr-only">TiGrIS: Tiled Graph Inference Scheduler for embedded devices</h1>
+
+    <noscript>
+      <div class="no-js-home" data-no-js-home>
+        <div>
+          <h2>TiGrIS</h2>
+          <p>Run your ML model where nothing else fits.</p>
+          <nav class="btn-row" aria-label="Primary navigation">
+            <a href="/getting-started/quickstart/" class="btn-landing">Docs</a>
+            <a href="/blog/" class="btn-landing">Blog</a>
+            <a href="https://github.com/raws-labs/tigris" class="btn-landing">GitHub</a>
+          </nav>
+        </div>
+      </div>
+    </noscript>
+
+    <div class="tile-grid" id="grid"></div>
+
+    <div id="taglineWrap" class="grid-overlay" style="display:none">
+      <p class="tagline">Run your ML model where nothing else fits.</p>
+    </div>
+    <div id="btnWrap" class="grid-overlay" style="display:none">
+      <nav class="btn-row" aria-label="Primary navigation">
+        <a href="/getting-started/quickstart/" class="btn-landing">Docs</a>
+        <a href="/blog/" class="btn-landing">Blog</a>
+        <a href="https://github.com/raws-labs/tigris" class="btn-landing" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </main>
+
+  <footer class="footer-links" id="footerLinks">
+    <nav aria-label="Legal and company links">
+      <a href="/imprint/">Imprint</a>
+      <a href="/privacy/">Privacy</a>
+      <a href="https://www.raws.at/" target="_blank" rel="noopener">RAWS Labs</a>
+    </nav>
+  </footer>
+
+  <script is:inline>
+    /* ── SVG content for each logo tile (paths only, viewBox cropped to tile bounds) ── */
+    const LOGO_TILES = [
+      { // Ti — 2×2
+        spanC: 2, spanR: 2, label: 'Tiled',
+        viewBox: '10 14 90 92',
+        paths: [
+          'M365 590V0H235V590H25V698H575V590Z|matrix(0.042,0,0,-0.042,29.80,74.0)',
+          'M332 596Q287 596 268.5 615.0Q250 634 250 661V685Q250 712 268.5 731.0Q287 750 332 750Q377 750 395.5 731.0Q414 712 414 685V661Q414 634 395.5 615.0Q377 596 332 596ZM98 101H268V415H98V516H396V101H554V0H98Z|matrix(0.042,0,0,-0.042,55.00,74.0)',
+        ],
+      },
+      { // Gr — 2×2
+        spanC: 2, spanR: 2, label: 'Graph',
+        viewBox: '108 14 90 92',
+        paths: [
+          'M421 97H413Q404 76 391.0 56.0Q378 36 359.0 21.0Q340 6 314.5 -3.0Q289 -12 256 -12Q150 -12 95.5 81.5Q41 175 41 344Q41 522 105.0 616.0Q169 710 302 710Q354 710 393.5 696.0Q433 682 461.5 657.0Q490 632 508.5 597.5Q527 563 538 523L418 489Q411 511 402.5 532.0Q394 553 380.5 568.5Q367 584 348.0 593.5Q329 603 301 603Q236 603 208.0 551.0Q180 499 180 409V297Q180 252 186.5 214.5Q193 177 208.0 150.0Q223 123 247.0 108.5Q271 94 307 94Q363 94 392.0 127.5Q421 161 421 213V270H294V365H538V0H421Z|matrix(0.042,0,0,-0.042,127.80,74.0)',
+          'M75 101H203V415H75V516H331V375H339Q346 402 358.5 427.5Q371 453 390.5 472.5Q410 492 438.0 504.0Q466 516 505 516H561V396H455Q397 396 364.0 362.0Q331 328 331 275V101H510V0H75Z|matrix(0.042,0,0,-0.042,153.00,74.0)',
+        ],
+      },
+      { // I — 2×2
+        spanC: 2, spanR: 2, label: 'Inference',
+        viewBox: '213.5 14 45 92',
+        paths: [
+          'M78 0V98H235V600H78V698H522V600H365V98H522V0Z|matrix(0.042,0,0,-0.042,223.40,74.0)',
+        ],
+      },
+      { // S — 1×2
+        spanC: 2, spanR: 2, label: 'Scheduler',
+        viewBox: '281.5 14 45 92',
+        paths: [
+          'M292 -12Q202 -12 138.5 19.0Q75 50 35 101L114 183Q153 138 198.5 116.5Q244 95 296 95Q356 95 388.0 122.0Q420 149 420 200Q420 242 396.0 263.5Q372 285 315 294L241 306Q144 323 103.0 376.5Q62 430 62 503Q62 603 127.0 656.5Q192 710 307 710Q389 710 448.5 684.0Q508 658 544 613L467 531Q439 564 400.0 583.5Q361 603 308 603Q194 603 194 509Q194 469 218.0 448.0Q242 427 300 417L373 404Q464 387 508.0 337.0Q552 287 552 209Q552 160 535.0 119.5Q518 79 485.0 49.5Q452 20 403.5 4.0Q355 -12 292 -12Z|matrix(0.042,0,0,-0.042,291.40,74.0)',
+        ],
+      },
+    ];
+
+    let LOGO_W, LOGO_H, compact;
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let reduceMotion = motionPreference.matches;
+
+    const grid = document.getElementById('grid');
+    const taglineWrap = document.getElementById('taglineWrap');
+    const btnWrap = document.getElementById('btnWrap');
+
+    // tileMap[row][col] → DOM element (0-indexed)
+    let tileMap = [];
+    let logoElements = [];
+    let cols, rows;
+
+    function buildGrid() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const target = 60;
+
+      compact = w < 600;
+      LOGO_W = compact ? 4 : 8;  // 2×2 grid on mobile, 4×1 on desktop
+      LOGO_H = compact ? 4 : 2;
+
+      cols = Math.round(w / target);
+      rows = Math.round(h / target);
+      if (cols < LOGO_W + 2) cols = LOGO_W + 2; // at least 1 col padding each side
+      if (rows < 6) rows = 6;
+      if (cols % 2 !== 0) cols++;
+
+      grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+      grid.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
+      grid.innerHTML = '';
+      tileMap = [];
+      logoElements = [];
+
+      for (let r = 0; r < rows; r++) tileMap[r] = new Array(cols).fill(null);
+
+      // Logo placement: centered, slightly above middle
+      const lc = Math.floor((cols - LOGO_W) / 2);
+      const lr = Math.floor((rows - LOGO_H) / 2) - (compact ? 1 : 2);
+
+      // Place logo tiles — 2×2 grid on compact, 4×1 row on desktop
+      for (let i = 0; i < LOGO_TILES.length; i++) {
+        const lt = LOGO_TILES[i];
+        let cx, cy;
+        if (compact) {
+          cx = lc + (i % 2) * 2;   // col: 0,2,0,2
+          cy = lr + Math.floor(i / 2) * 2; // row: 0,0,2,2
+        } else {
+          cx = lc + i * 2;
+          cy = lr;
+        }
+
+        const el = document.createElement('div');
+        el.className = 'logo-tile';
+        el.dataset.label = lt.label;
+        el.style.gridColumn = `${cx + 1} / span ${lt.spanC}`;
+        el.style.gridRow = `${cy + 1} / span ${lt.spanR}`;
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', lt.viewBox);
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        for (const p of lt.paths) {
+          const [d, transform] = p.split('|');
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('d', d);
+          path.setAttribute('transform', transform);
+          svg.appendChild(path);
+        }
+        el.appendChild(svg);
+        grid.appendChild(el);
+        logoElements.push(el);
+
+        for (let dr = 0; dr < lt.spanR; dr++) {
+          for (let dc = 0; dc < lt.spanC; dc++) {
+            tileMap[cy + dr][cx + dc] = el;
+          }
+        }
+      }
+
+      // Place tagline and buttons in grid rows below logo
+      const taglineRow = lr + LOGO_H + (compact ? 0 : 1);
+      taglineWrap.style.gridColumn = '1 / -1';
+      taglineWrap.style.gridRow = String(taglineRow + 1);
+      taglineWrap.style.display = '';
+      grid.appendChild(taglineWrap);
+
+      const btnRow = taglineRow + 2;
+      btnWrap.style.gridColumn = '1 / -1';
+      btnWrap.style.gridRow = String(btnRow + 1);
+      btnWrap.style.display = '';
+      grid.appendChild(btnWrap);
+
+      // Fill remaining cells with regular tiles
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (tileMap[r][c]) continue;
+          const t = document.createElement('div');
+          t.className = 'tile';
+          t.style.gridColumn = String(c + 1);
+          t.style.gridRow = String(r + 1);
+          grid.appendChild(t);
+          tileMap[r][c] = t;
+        }
+      }
+
+      if (reduceMotion) revealStatic();
+      else setTimeout(revealSequence, 300);
+    }
+
+    function revealStatic() {
+      logoElements.forEach(el => el.classList.add('revealed'));
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const el = tileMap[r][c];
+          if (!el.classList.contains('logo-tile')) el.classList.add('visible');
+        }
+      }
+      document.querySelector('.tagline').style.opacity = '1';
+      document.querySelector('.btn-row').style.opacity = '1';
+      document.getElementById('footerLinks').style.opacity = '1';
+    }
+
+    /* ── Staged reveal sequence ── */
+    function revealSequence() {
+      // Logo tiles appear one by one with highlight
+      for (let i = 0; i < logoElements.length; i++) {
+        setTimeout(() => {
+          const el = logoElements[i];
+          el.classList.add('bright');
+          setTimeout(() => {
+            el.classList.remove('bright');
+            el.classList.add('revealed');
+          }, 400);
+        }, i * 300);
+      }
+
+      // Background tiles populate simultaneously (randomly shuffled)
+      const bgTiles = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const el = tileMap[r][c];
+          if (!el.classList.contains('logo-tile')) {
+            bgTiles.push({ el, dist: r + c });
+          }
+        }
+      }
+      // Shuffle randomly
+      for (let i = bgTiles.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bgTiles[i], bgTiles[j]] = [bgTiles[j], bgTiles[i]];
+      }
+
+      const tileDelay = 5;
+      for (let i = 0; i < bgTiles.length; i++) {
+        setTimeout(() => bgTiles[i].el.classList.add('visible'), i * tileDelay);
+      }
+
+      // Tagline appears right after last logo settles
+      const logosDone = logoElements.length * 300 + 400;
+      setTimeout(() => {
+        document.querySelector('.tagline').style.animation = 'fadeup 1s ease forwards';
+      }, logosDone);
+
+      setTimeout(() => {
+        document.querySelector('.btn-row').style.animation = 'fadeup 1s ease forwards';
+        document.getElementById('footerLinks').style.animation = 'fadein 1.5s ease forwards';
+      }, logosDone + 300);
+
+      // Start ambient as soon as bg tiles are populated
+      setTimeout(startPulse, bgTiles.length * tileDelay + 100);
+    }
+
+    let pulseTimer = null;
+    function startPulse() {
+      if (reduceMotion || pulseTimer || document.visibilityState === 'hidden') return;
+      pulseTimer = setInterval(pulse, 1200);
+    }
+    function stopPulse() {
+      if (pulseTimer) { clearInterval(pulseTimer); pulseTimer = null; }
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') startPulse(); else stopPulse();
+    });
+    motionPreference.addEventListener('change', event => {
+      reduceMotion = event.matches;
+      if (reduceMotion) {
+        stopPulse();
+        revealStatic();
+      } else {
+        startPulse();
+      }
+    });
+
+    /* ── Ambient network pulse — distributed activity ── */
+    function pulse() {
+      const count = 2 + Math.floor(Math.random() * 5);
+      for (let j = 0; j < count; j++) {
+        const r = Math.floor(Math.random() * rows);
+        const c = Math.floor(Math.random() * cols);
+        const el = tileMap[r][c];
+        if (el.classList.contains('logo-tile') || !el.classList.contains('visible')) continue;
+        // Mostly lit, occasionally bright for a node "burst"
+        const cls = Math.random() > 0.85 ? 'bright' : 'lit';
+        el.classList.add(cls);
+        const hold = 1500 + Math.random() * 3000;
+        setTimeout(() => el.classList.remove('lit', 'bright'), hold);
+      }
+    }
+
+    buildGrid();
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(buildGrid, 200);
+    });
+  </script>
+</body>
+</html>

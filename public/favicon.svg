@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Theme-aware 2x2 tile mark: a dark cutout on light browser tabs, a light
+       cutout on dark tabs. SVG favicons honor prefers-color-scheme in modern
+       browsers, so one file covers both chromes at full contrast — no washed-
+       out mid-tone. The .ico fallback carries the light-tab (dark) version. -->
+  <style>
+    rect { fill: #16182a; }
+    @media (prefers-color-scheme: dark) { rect { fill: #f4f4f5; } }
+  </style>
+  <rect x="5" y="5" width="24" height="24" rx="4"/>
+  <rect x="35" y="5" width="24" height="24" rx="4"/>
+  <rect x="5" y="35" width="24" height="24" rx="4"/>
+  <rect x="35" y="35" width="24" height="24" rx="4"/>
+</svg>

@@ -1,0 +1,20 @@
+---
+// Overrides Starlight's right-hand TOC to host the page-tooling row (Edit / Copy
+// + last-updated) at the top, then the default "On this page" list below.
+import Default from "@astrojs/starlight/components/TableOfContents.astro";
+import PageTools from "./PageTools.astro";
+---
+
+<div class="toc-tools-wrap">
+  <PageTools />
+</div>
+
+<Default />
+
+<style>
+  .toc-tools-wrap {
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--sl-color-hairline-light);
+  }
+</style>
