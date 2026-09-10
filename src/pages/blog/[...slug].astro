@@ -1,0 +1,43 @@
+---
+import { getCollection, render } from "astro:content";
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("blog");
+  return posts.map((p) => ({ params: { slug: p.id }, props: { post: p } }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+const fmt = (d: Date) =>
+  d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+---
+
+<StarlightPage
+  frontmatter={{
+    title: post.data.title,
+    description: post.data.excerpt,
+    // No left sidebar and no right TOC → a clean, centered article (a lone TOC
+    // rail would push the content column off-center).
+    tableOfContents: false,
+    editUrl: false,
+  }}
+  hasSidebar={false}
+>
+  <p class="blog-date">{fmt(post.data.date)}</p>
+  <Content />
+  <p class="blog-back"><a href="/blog/">← Back to all posts</a></p>
+</StarlightPage>
+
+<style>
+  .blog-date {
+    margin-top: 0;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-sm);
+  }
+  .blog-back {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--sl-color-gray-5);
+  }
+</style>

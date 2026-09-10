@@ -1,0 +1,174 @@
+/* TiGrIS brand. Inter (variable) is loaded via @fontsource in astro.config.mjs
+   customCss; this file sets the palette and typography. A single sans family
+   plus the system monospace for code — the clean look of the Starlight showcase
+   sites, without a serif/mono mix. */
+:root {
+  --sl-font: "Inter Variable", "Inter", system-ui, -apple-system, sans-serif;
+  /* A real coding font (not the system fallback) for all code — docs
+     (Expressive Code reads this via --__sl-font-mono), inline code, and blog. */
+  --sl-font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo,
+    Consolas, "Liberation Mono", monospace;
+
+  /* One green accent — #32be78 — everywhere, both themes. `accent-low` is a
+     translucent wash of that same green (Starlight uses it for subtle
+     backgrounds); text sitting on the accent is dark so it stays readable. */
+  --sl-color-accent-low: color-mix(in srgb, #32be78 15%, transparent);
+  --sl-color-accent: #32be78;
+  --sl-color-accent-high: #32be78;
+  --sl-color-text-accent: #32be78;
+  --sl-color-text-invert: #0a2318;
+
+  /* Header bar: a taller nav on the page background (white in light, dark in
+     dark) instead of Starlight's default gray, with its existing hairline
+     bottom border — the clean Kinde-style top bar. */
+  --sl-nav-height: 4.5rem;
+  --sl-color-bg-nav: var(--sl-color-bg);
+  /* Sidebar shares the page background (Starlight's dark default is a lighter
+     grey, which stands out oddly now the header matches the page). Header +
+     sidebar + content read as one surface, separated only by hairlines. */
+  --sl-color-bg-sidebar: var(--sl-color-bg);
+
+  /* Soft-gray code panel (light default; dark below). Used by Expressive Code
+     (docs) and the blog's .astro-code, so both read as a flat neat panel.
+     Kinde's value (rgb 250,250,250). */
+  --tigris-code-bg: #fafafa;
+}
+
+/* Light theme matches tigris-web (white ground, near-navy text). The accent
+   stays the vivid brand green (#32be78) in both themes. */
+:root[data-theme="light"] {
+  --sl-color-bg: #ffffff;
+  --sl-color-text: #1a1a2e;
+}
+
+:root[data-theme="dark"] {
+  --tigris-code-bg: #1c1d24;
+}
+
+/* Inline content links: body-colored text + a green underline. The vivid
+   #32be78 is too low-contrast for green link *text* on white (~2.4:1), so the
+   underline carries the brand while the text stays high-contrast (accessible).
+   The underline thickens on hover. */
+.sl-markdown-content a {
+  color: var(--sl-color-text);
+  text-decoration: underline;
+  text-decoration-color: var(--sl-color-accent);
+  text-decoration-thickness: 0.09em;
+  text-underline-offset: 0.2em;
+}
+.sl-markdown-content a:hover {
+  text-decoration-thickness: 0.16em;
+}
+
+/* Wordmark — monospace (JetBrains Mono), body-colored (black in light, white in
+   dark) rather than Starlight's default accent green. */
+.site-title {
+  color: var(--sl-color-text);
+  font-family: var(--sl-font-mono);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Header social icons (GitHub) — body-colored (black in light, white in dark)
+   instead of Starlight's default accent green; accent only on hover. */
+a[rel="me"] {
+  color: var(--sl-color-text);
+}
+a[rel="me"]:hover,
+a[rel="me"]:focus {
+  color: var(--sl-color-text-accent);
+}
+/* Larger header icons (Kinde-style). */
+a[rel="me"] svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+/* Blog code (Astro Markdown / Shiki, not Expressive Code) — flat panel matching
+   the docs' code: the soft-gray background, no border. Light token colors apply
+   inline; swap to the dark token colors (not backgrounds) in dark mode. */
+.sl-markdown-content .astro-code {
+  background-color: var(--tigris-code-bg) !important;
+  border: none;
+  border-radius: 0;
+  padding: 1rem 1.25rem;
+}
+:root[data-theme="dark"] .astro-code,
+:root[data-theme="dark"] .astro-code span {
+  color: var(--shiki-dark) !important;
+  font-style: var(--shiki-dark-font-style) !important;
+  font-weight: var(--shiki-dark-font-weight) !important;
+}
+
+/* Flat frames: drop the editor tab / terminal title bar (the "traffic-light"
+   dots). No code block uses a title, so that header is pure decoration. */
+.expressive-code .frame .header {
+  display: none;
+}
+/* The hidden header reserved ~1.9rem of top offset for the copy button, which
+   made it float below single-line blocks; reset it to sit inside the top-right. */
+.expressive-code .frame.is-terminal,
+.expressive-code .frame.has-title:not(.is-terminal) {
+  --button-spacing: 0.4rem;
+}
+
+/* Docs code: reveal the copy button on hover only, so blocks rest chrome-free. */
+.expressive-code .copy {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.expressive-code:hover .copy,
+.expressive-code:focus-within .copy {
+  opacity: 1;
+}
+
+/* Data-driven capability tables (operator support page). */
+.capability-table {
+  overflow-x: auto;
+}
+
+/* Hide the previous/next pagination cards (redundant and too prominent). */
+.pagination-links {
+  display: none;
+}
+
+/* Active nav (left sidebar) — bold body-colored text + a 3px vivid-green left
+   bar, no fill. Matches the live site's marker-highlight style. */
+.sidebar a[aria-current="page"],
+.sidebar a[aria-current="page"]:hover,
+.sidebar a[aria-current="page"]:focus {
+  color: var(--sl-color-text);
+  background: none;
+  box-shadow: none;
+  font-weight: 600;
+  position: relative;
+}
+.sidebar a[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  /* Sit on top of Starlight's per-group vertical indicator (the 1px hairline
+     border on each nested <li>, offset by --sl-sidebar-item-padding-inline),
+     so the active item reads as a green segment of that chapter line. */
+  left: calc(-1 * var(--sl-sidebar-item-padding-inline, 0.5rem) - 2px);
+  width: 3px;
+  background: var(--sl-color-accent);
+  pointer-events: none;
+}
+
+/* Active table-of-contents entry (right, scroll-spy) — same green bar so it is
+   actually visible (Starlight's default was too faint here). */
+.right-sidebar a[aria-current="true"] {
+  color: var(--sl-color-text);
+  font-weight: 600;
+  position: relative;
+}
+.right-sidebar a[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: -0.5rem;
+  width: 3px;
+  background: var(--sl-color-accent);
+  pointer-events: none;
+}

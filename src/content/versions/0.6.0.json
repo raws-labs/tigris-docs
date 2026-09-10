@@ -1,0 +1,49 @@
+{
+  "sidebar": [
+    {
+      "label": "Getting Started",
+      "collapsed": true,
+      "items": [
+        {
+          "autogenerate": {
+            "directory": "getting-started"
+          }
+        }
+      ]
+    },
+    {
+      "label": "CLI Reference",
+      "collapsed": true,
+      "items": [
+        {
+          "autogenerate": {
+            "directory": "toolchain"
+          }
+        }
+      ]
+    },
+    {
+      "label": "Architecture",
+      "collapsed": true,
+      "items": [
+        {
+          "autogenerate": {
+            "directory": "architecture"
+          }
+        }
+      ]
+    },
+    {
+      "label": "Runtime",
+      "collapsed": true,
+      "items": [
+        {
+          "autogenerate": {
+            "directory": "runtime"
+          }
+        }
+      ]
+    }
+  ],
+  "excluded": []
+}

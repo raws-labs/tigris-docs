@@ -1,0 +1,69 @@
+---
+title: "Choosing a Kernel Backend"
+description: "Choose between portable C, ESP-NN, and CMSIS-NN, and see where TiGrIS uses native acceleration or a safe fallback."
+sidebar:
+  order: 410
+---
+
+import CapabilityMatrix from "../../../components/CapabilityMatrix.astro";
+
+TiGrIS plans are target-independent. The backend selected with `tigris codegen`
+chooses the kernels used by the generated integration code; it does not change
+the model or plan format.
+
+For initial integration and host testing, use `reference`. For an int8 deployment,
+select `esp-nn` on ESP32-S3 or `cmsis-nn` on Cortex-M. Both accelerated backends
+fall back to TiGrIS's portable int8 kernels when a vendor kernel cannot preserve
+the plan's semantics.
+
+## At a glance
+
+| `--backend` | Intended target | Float32 plan | Int8 plan |
+|---|---|---|---|
+| `reference` | POSIX, tests, portable deployments | Portable C | Portable C |
+| `esp-nn` | ESP32-S3 | Portable C | ESP-NN with portable fallback |
+| `cmsis-nn` | Arm Cortex-M | Portable C | CMSIS-NN with portable fallback |
+
+ESP-NN and CMSIS-NN accelerate int8 only. Selecting either for a float32 plan
+explicitly uses the portable float implementation.
+
+## Supported operators
+
+The table covers operators that may remain after TiGrIS normalizes an ONNX
+graph. **Native** means the vendor library is normally used. **Portable
+fallback** remains supported but does not receive vendor acceleration.
+
+<CapabilityMatrix mode="matrix" />
+
+## Important operator limits
+
+The matrix uses the runtime's NLC/NHWC layouts. For rank-3 and rank-4 ONNX
+activations, the channel axis becomes the runtime's final dimension; this is
+the supported Softmax axis.
+
+<CapabilityMatrix mode="limits" />
+
+## When native acceleration falls back
+
+An asterisk in the support table means the vendor adapter is used for the
+common case, while these variants deliberately take the portable int8 path:
+
+<CapabilityMatrix mode="fallbacks" />
+
+## Operators not directly executable
+
+These names have reserved plan opcodes but no kernel route. Normalization may
+fold or rewrite some of them; code generation rejects a plan if one remains:
+
+<CapabilityMatrix mode="unsupported" />
+
+The compiler still validates each model's shapes, attributes, quantization,
+tiling, and memory requirements. A listed operator does not imply support for
+every ONNX attribute combination.
+
+## Keeping this page accurate
+
+These tables describe the currently released `tigris-ml` package. They are
+generated from its capability contract and automatically verified against the
+published package for every website release. Development CI separately checks
+the next documentation state against compiler and runtime `develop`.

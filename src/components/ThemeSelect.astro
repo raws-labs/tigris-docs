@@ -1,0 +1,70 @@
+---
+// Replaces Starlight's labelled theme <select> ("☾ Dark ▾") with a single
+// borderless icon button that toggles light/dark — the current theme's icon
+// shows (sun in light, moon in dark), swapped by CSS off <html data-theme>.
+// Writes Starlight's own storage key so it stays in sync with the docs and blog.
+import { Icon } from "@astrojs/starlight/components";
+---
+
+<theme-toggle-button>
+  <button
+    type="button"
+    class="tigris-theme-toggle"
+    aria-label="Toggle light or dark theme"
+    title="Toggle theme"
+  >
+    <span class="icon-sun"><Icon name="sun" size="1.4rem" /></span>
+    <span class="icon-moon"><Icon name="moon" size="1.4rem" /></span>
+  </button>
+</theme-toggle-button>
+
+<style is:global>
+  .tigris-theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0.4rem;
+    background: transparent;
+    color: var(--sl-color-text);
+    cursor: pointer;
+    line-height: 0;
+  }
+  .tigris-theme-toggle:hover {
+    color: var(--sl-color-text-accent);
+    background: color-mix(in srgb, var(--sl-color-gray-4) 22%, transparent);
+  }
+  .tigris-theme-toggle .icon-sun,
+  .tigris-theme-toggle .icon-moon {
+    display: inline-flex;
+  }
+  /* Show the icon of the theme currently in effect. */
+  :root[data-theme="dark"] .tigris-theme-toggle .icon-sun {
+    display: none;
+  }
+  :root[data-theme="light"] .tigris-theme-toggle .icon-moon {
+    display: none;
+  }
+</style>
+
+<script>
+  class ThemeToggleButton extends HTMLElement {
+    constructor() {
+      super();
+      this.querySelector("button")?.addEventListener("click", () => {
+        const root = document.documentElement;
+        const next = root.dataset.theme === "dark" ? "light" : "dark";
+        root.dataset.theme = next;
+        try {
+          localStorage.setItem("starlight-theme", next);
+        } catch {}
+      });
+    }
+  }
+  if (!customElements.get("theme-toggle-button")) {
+    customElements.define("theme-toggle-button", ThemeToggleButton);
+  }
+</script>

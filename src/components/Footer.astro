@@ -1,0 +1,40 @@
+---
+// Wraps Starlight's default footer and appends a single-line site footer:
+// maintainer + legal links, chained with middle-dot separators.
+import Default from "@astrojs/starlight/components/Footer.astro";
+---
+
+<Default><slot /></Default>
+
+<div class="site-footer">
+  <span>Maintained by <a href="https://www.raws.at/">RAWS Labs</a></span>
+  <span class="sep" aria-hidden="true">·</span>
+  <a href="/imprint/">Imprint</a>
+  <span class="sep" aria-hidden="true">·</span>
+  <a href="/privacy/">Privacy</a>
+  <span class="sep" aria-hidden="true">·</span>
+  <a href="/third-party-notices.txt">Third-party notices</a>
+</div>
+
+<style>
+  .site-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    margin-top: 1.5rem;
+    text-align: center;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .site-footer a {
+    color: var(--sl-color-gray-3);
+  }
+  .site-footer a:hover {
+    color: var(--sl-color-text-accent);
+  }
+  .site-footer .sep {
+    color: var(--sl-color-gray-5);
+  }
+</style>

@@ -1,0 +1,170 @@
+---
+// Page tooling row: Edit + Copy (icons) with last-updated pushed to the right.
+// Rendered in the right-hand TOC on desktop and under the title on mobile (the
+// desktop rail is hidden below Starlight's `lg` breakpoint).
+import { Icon } from "@astrojs/starlight/components";
+
+interface Props {
+  align?: "left" | "right";
+}
+const { align = "left" } = Astro.props;
+
+const { editUrl, lastUpdated } = Astro.locals.starlightRoute;
+const updatedStr = lastUpdated
+  ? lastUpdated.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
+  : undefined;
+const mdPath = Astro.url.pathname.replace(/\/$/, "") + ".md";
+const mdAbs = new URL(mdPath, Astro.site ?? Astro.url).href;
+const aiPrompt = `Read ${mdAbs} and help me with questions about this TiGrIS documentation page.`;
+const chatgptUrl = `https://chatgpt.com/?q=${encodeURIComponent(aiPrompt)}`;
+const claudeUrl = `https://claude.ai/new?q=${encodeURIComponent(aiPrompt)}`;
+---
+
+<div class="page-tools">
+  {
+    editUrl && (
+      <a
+        class="tool"
+        href={editUrl.href}
+        target="_blank"
+        rel="noopener"
+        title="Edit this page on GitHub"
+        aria-label="Edit this page on GitHub"
+      >
+        <Icon name="pencil" size="1.15rem" />
+      </a>
+    )
+  }
+  <details class="tool-copy">
+    <summary class="tool" title="Copy for AI" aria-label="Copy for AI">
+      <svg
+        viewBox="0 0 24 24"
+        width="1.1rem"
+        height="1.1rem"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="9" y="9" width="13" height="13" rx="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </svg>
+    </summary>
+    <div class:list={["copy-panel", { "align-right": align === "right" }]}>
+      <button type="button" class="ai-copy" data-md={mdPath}>Copy as Markdown</button>
+      <a href={mdPath} target="_blank" rel="noopener">View as Markdown</a>
+      <a href={chatgptUrl} target="_blank" rel="noopener">Open in ChatGPT</a>
+      <a href={claudeUrl} target="_blank" rel="noopener">Open in Claude</a>
+    </div>
+  </details>
+  {
+    updatedStr && (
+      <span class="tool-updated" title={`Last updated ${updatedStr}`}>
+        <Icon name="clock" size="0.9rem" />
+        {updatedStr}
+      </span>
+    )
+  }
+</div>
+
+<style>
+  .page-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+  }
+  .tool {
+    display: inline-flex;
+    align-items: center;
+    color: var(--sl-color-gray-3);
+    text-decoration: none;
+    cursor: pointer;
+    list-style: none;
+  }
+  .tool :global(svg) {
+    flex: none;
+    display: block;
+  }
+  .tool::-webkit-details-marker {
+    display: none;
+  }
+  .tool:hover {
+    color: var(--sl-color-text-accent);
+  }
+  .tool-copy {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+  }
+  .tool-updated {
+    margin-inline-start: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+    white-space: nowrap;
+  }
+  .tool-updated :global(svg) {
+    flex: none;
+    opacity: 0.75;
+  }
+  .copy-panel {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    min-width: 11rem;
+    padding: 0.3rem;
+    background: var(--sl-color-bg);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+  }
+  .copy-panel.align-right {
+    left: auto;
+    right: 0;
+  }
+  .copy-panel > * {
+    text-align: left;
+    font: inherit;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-text);
+    background: none;
+    border: 0;
+    border-radius: 0.3rem;
+    padding: 0.4rem 0.6rem;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .copy-panel > *:hover {
+    background: color-mix(in srgb, var(--sl-color-accent) 14%, transparent);
+    color: var(--sl-color-text-accent);
+  }
+</style>
+
+<script>
+  document.querySelectorAll(".ai-copy").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const el = btn as HTMLButtonElement;
+      const url = el.dataset.md;
+      if (!url) return;
+      const label = el.textContent;
+      try {
+        const res = await fetch(url);
+        await navigator.clipboard.writeText(await res.text());
+        el.textContent = "Copied!";
+      } catch {
+        el.textContent = "Copy failed";
+      }
+      el.closest("details")?.removeAttribute("open");
+      setTimeout(() => {
+        el.textContent = label;
+      }, 1500);
+    });
+  });
+</script>
