@@ -23,3 +23,8 @@ pnpm-debug.log*
 # editor config
 .vscode/
 .idea/
+
+# Hide everything else starting with a dot, only whitelist intended ones
+.*
+!.gitignore
+!.github/
