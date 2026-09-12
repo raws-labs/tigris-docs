@@ -13,12 +13,12 @@ A `.tgrs` file is a binary artifact containing the compiler-chosen operator sche
 
 ```
 ds_cnn.tgrs (26 KB)
-├── header        magic, version, memory requirements
-├── stages[]      ordered list of execution stages
-│   └── ops[]     operator descriptors (type, params, tensor refs)
-├── tile plans    compiler-chosen streaming strategy and bounds
-├── tensors[]     shapes, dtypes, and sizes
-└── weights       model weights (f32 or int8), read via XIP or copied to SRAM
++-- header        magic, version, memory requirements
++-- stages[]      ordered list of execution stages
+|   +-- ops[]     operator descriptors (type, params, tensor refs)
++-- tile plans    compiler-chosen streaming strategy and bounds
++-- tensors[]     shapes, dtypes, and sizes
++-- weights       model weights (f32 or int8), read via XIP or copied to SRAM
 ```
 
 The plan fixes the execution order and bounds, but it does not contain absolute

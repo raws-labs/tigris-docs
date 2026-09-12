@@ -45,7 +45,7 @@ This website does not use cookies for tracking or analytics purposes.
 
 ## Web Analytics
 
-To understand how our website is used and to improve it, we use Umami — a privacy-friendly, self-hosted web-analytics tool. It records aggregate statistics only (such as which pages are visited, referring sources, and approximate country, browser, and device type). Umami runs on our own server within the EU.
+To understand how our website is used and to improve it, we use Umami, a privacy-friendly, self-hosted web-analytics tool. It records aggregate statistics only (such as which pages are visited, referring sources, and approximate country, browser, and device type). Umami runs on our own server within the EU.
 
 It is cookieless by design: no cookies are set, no cross-site or persistent identifiers are created, and no profile of you is built. Your IP address is used only transiently to derive these aggregate statistics and is not stored, and no data is shared with third parties. Legal basis: our legitimate interest in measuring and improving our website (Article 6(1)(f) GDPR). You may object to this processing at any time (Article 21 GDPR).
 

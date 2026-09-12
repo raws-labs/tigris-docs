@@ -120,7 +120,7 @@ tile_h = floor(budget * H / peak) - halo
 The tiled peak memory is approximately:
 
 ```
-tiled_peak ≈ peak * (tile_h + halo) / H
+tiled_peak ~= peak * (tile_h + halo) / H
 ```
 
 Overhead from recomputing halo rows: `halo_bytes * (num_tiles - 1)`.

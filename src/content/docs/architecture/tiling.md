@@ -1,6 +1,6 @@
 ---
 title: "Tiling"
-description: "Tiling is how TiGrIS fits large models into small SRAM — processing feature maps in horizontal strips cuts peak activation memory in proportion to strip height."
+description: "Tiling is how TiGrIS fits large models into small SRAM: processing feature maps in horizontal strips cuts peak activation memory in proportion to strip height."
 sidebar:
   order: 320
 ---
@@ -29,19 +29,19 @@ The stage exceeds the budget, but all ops in the stage are tileable. The output 
 
 ```text
 Input feature map             Output feature map
-┌──────────────────┐          ┌──────────────────┐
-│   halo overlap   │──┐       │                  │
-├──────────────────┤  ├──────>│   Tile 0 out     │
-│   Tile 0 rows    │──┘       │                  │
-├──────────────────┤          ├──────────────────┤
-│   halo overlap   │──┐       │                  │
-├──────────────────┤  ├──────>│   Tile 1 out     │
-│   Tile 1 rows    │──┘       │                  │
-├──────────────────┤          ├──────────────────┤
-│   halo overlap   │──┐       │                  │
-├──────────────────┤  ├──────>│   Tile 2 out     │
-│   Tile 2 rows    │──┘       │                  │
-└──────────────────┘          └──────────────────┘
++------------------+          +------------------+
+|   halo overlap   |--+       |                  |
++------------------+  +------>|   Tile 0 out     |
+|   Tile 0 rows    |--+       |                  |
++------------------+          +------------------+
+|   halo overlap   |--+       |                  |
++------------------+  +------>|   Tile 1 out     |
+|   Tile 1 rows    |--+       |                  |
++------------------+          +------------------+
+|   halo overlap   |--+       |                  |
++------------------+  +------>|   Tile 2 out     |
+|   Tile 2 rows    |--+       |                  |
++------------------+          +------------------+
 ```
 Each input tile includes halo rows from the neighboring tile. The halo provides the spatial context that Conv/Pool kernels need at boundaries. Halo regions overlap between adjacent tiles.
 
@@ -62,16 +62,16 @@ Two or more consecutive tileable stages form a chain when each stage has exactly
 
 ```text
                      SRAM arena
-                ┌────────────────────┐
-                │  Input tile        │ <-- from slow
-                │  (stage 0 in)      │
-                ├────────────────────┤
- Stage 0 ops -->│  Intermediate tile │ <-- stays in SRAM
-                │                    │
-                ├────────────────────┤
- Stage 1 ops -->│  Output tile       │ --> to slow
-                │  (stage 1 out)     │
-                └────────────────────┘
+                +--------------------+
+                |  Input tile        | <-- from slow
+                |  (stage 0 in)      |
+                +--------------------+
+ Stage 0 ops -->|  Intermediate tile | <-- stays in SRAM
+                |                    |
+                +--------------------+
+ Stage 1 ops -->|  Output tile       | --> to slow
+                |  (stage 1 out)     |
+                +--------------------+
 ```
 
 Only the first input and last output touch slow memory. Intermediates stay in the arena per tile.
@@ -148,7 +148,7 @@ num_tiles = ceil(H / tile_h)
 Tiled peak memory:
 
 ```
-tiled_peak ≈ peak * (tile_h + halo) / H
+tiled_peak ~= peak * (tile_h + halo) / H
 ```
 
 Redundant computation overhead:
@@ -193,12 +193,12 @@ Arena during one chain tile iteration:
 
 ```text
 Low addr                            High addr
-┌──────────┬──────────┬──────────┬──────────┐
-│ Stage 0  │ Stage 0  │ Stage 1  │ Scratch  │
-│ input    │ output / │ output   │ buffers  │
-│ tile     │ Stage 1  │ tile     │          │
-│          │ input    │          │          │
-└──────────┴──────────┴──────────┴──────────┘
++----------+----------+----------+----------+
+| Stage 0  | Stage 0  | Stage 1  | Scratch  |
+| input    | output / | output   | buffers  |
+| tile     | Stage 1  | tile     |          |
+|          | input    |          |          |
++----------+----------+----------+----------+
 ```
 
 After Stage 0 finishes, its input tile is freed. Stage 1 reuses that arena space. Only the final output tile is spilled to slow memory.
