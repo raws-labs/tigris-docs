@@ -1,6 +1,6 @@
 ---
 title: "Memory Model"
-description: "TiGrIS's three-region memory model — a compile-time execution schedule over caller-provided arenas allocated and compacted by the runtime."
+description: "TiGrIS's three-region memory model: a compile-time execution schedule over caller-provided arenas allocated and compacted by the runtime."
 sidebar:
   order: 330
 ---
@@ -60,10 +60,10 @@ The fast arena is a contiguous block of SRAM. Allocation works as follows:
 Arena layout:
 
 Low addr                                 High addr
-┌───────────┬──────────┬──────────┬──────────────┐
-│ reserved  │ Tensor A │ Tensor B │ free space   │
-│ (weights) │ (aligned)│ (aligned)│              │
-└───────────┴──────────┴──────────┴──────────────┘
++-----------+----------+----------+--------------+
+| reserved  | Tensor A | Tensor B | free space   |
+| (weights) | (aligned)| (aligned)|              |
++-----------+----------+----------+--------------+
              ^                     ^
              arena_base            bump_ptr
 ```
@@ -122,7 +122,7 @@ Override with `-DTIGRIS_TENSOR_ALIGN=N` at build time. Backend-specific scratch 
 The `.tgrs` buffer has a related base-address contract. Optimized CMSIS-NN
 kernels can read uncompressed XIP weights directly from offsets relative to the
 plan base, so the plan buffer itself must be aligned to
-`TIGRIS_TENSOR_ALIGN`—16 bytes on DSP-enabled Cortex-M. Embedded arrays,
+`TIGRIS_TENSOR_ALIGN`, 16 bytes on DSP-enabled Cortex-M. Embedded arrays,
 linker sections, custom flash mappings, and loaded buffers must all preserve
 that base alignment.
 
@@ -166,10 +166,10 @@ model-dependent workspace during inference.
 Fast-buffer layout after CMSIS-NN preparation:
 
 Low addr                                   High addr
-┌───────────┬──────────────────┬──────────────────┐
-│ reserved  │ activation space │ backend scratch  │
-│ (weights) │ (bump allocator) │ (SIMD scratch)   │
-└───────────┴──────────────────┴──────────────────┘
++-----------+------------------+------------------+
+| reserved  | activation space | backend scratch  |
+| (weights) | (bump allocator) | (SIMD scratch)   |
++-----------+------------------+------------------+
 ```
 
 `tigris_cmsis_nn_scratch_required()` returns the exact aligned CMSIS-NN

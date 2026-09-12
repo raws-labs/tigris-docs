@@ -33,8 +33,8 @@ NUCLEO-F446RE and the Raspberry Pi Pico 2 (RP2350).
 - A serial terminal (for example `screen`, `minicom`, or `tio`) for the
   ST-LINK virtual COM port
 
-The package fetches its remaining dependencies — the TiGrIS runtime, CMSIS-NN,
-CMSIS-Core, and the STM32 CMSIS-Device pack — by pinned commit at configure
+The package fetches its remaining dependencies (the TiGrIS runtime, CMSIS-NN,
+CMSIS-Core, and the STM32 CMSIS-Device pack) by pinned commit at configure
 time, so an internet connection is needed for the first build.
 
 ## Step 1: Get the target-support package
@@ -92,8 +92,8 @@ tigris codegen model.tgrs --backend cmsis-nn --format core \
   --output tigris_codegen_core.c --header tigris_codegen_core.h
 ```
 
-`--format core` emits a self-contained deployment core — it loads the embedded
-plan, prepares the CMSIS-NN backend, and runs the schedule — rather than a full
+`--format core` emits a self-contained deployment core. It loads the embedded
+plan, prepares the CMSIS-NN backend, and runs the schedule, rather than a full
 example application. The board firmware calls into it. See
 [`codegen`](/toolchain/codegen/) for the other formats
 and backends.
@@ -109,8 +109,8 @@ python tools/bin2c.py model.tgrs model_blob.c --symbol g_tigris_plan
 
 ## Step 6: Swap in your model and rebuild
 
-Replace the three files in `examples/ds_cnn/` with the ones you just generated —
-`tigris_codegen_core.c`, `tigris_codegen_core.h`, and `model_blob.c` — then
+Replace the three files in `examples/ds_cnn/` with the ones you just generated,
+`tigris_codegen_core.c`, `tigris_codegen_core.h`, and `model_blob.c`, then
 rebuild, sizing the arenas to your plan and board:
 
 ```bash
@@ -122,7 +122,7 @@ cmake --build build
 Set `-DTIGRIS_APP_FAST_ARENA_BYTES` to at least your plan's `-m` budget, and
 `-DTIGRIS_APP_SLOW_ARENA_BYTES` if the plan uses a slow pool. If the linker
 reports the `.bss` section overflowing SRAM, the arenas are larger than the
-board holds — lower the budget and the arena together.
+board holds. Lower the budget and the arena together.
 
 ## Step 7: Flash and read the output
 
@@ -137,15 +137,15 @@ and its cycle count.
 
 The runtime is designed to produce the same INT8 output on the device as on the
 host for the same plan and input. To confirm your deployment, run the same model
-and input through the host — for example the `reference` backend, or ONNX
-Runtime on the original float model — and compare the INT8 vectors. They should
+and input through the host, for example the `reference` backend, or ONNX
+Runtime on the original float model, and compare the INT8 vectors. They should
 match exactly; a mismatch usually means the input fed on-device differs from the
 one you compared against.
 
 ## Adapting to other boards
 
 - **NUCLEO-F446RE** (Cortex-M4F, 128 KiB SRAM): build with
-  `-DTIGRIS_BOARD=nucleo_f446re`. The smaller SRAM is the binding constraint —
+  `-DTIGRIS_BOARD=nucleo_f446re`. The smaller SRAM is the binding constraint:
   keep the `-m` budget and the fast arena within 128 KiB.
 - **Raspberry Pi Pico 2 / RP2350** (Cortex-M33): a separate pico-sdk build
   producing a `.uf2`. See the package's
@@ -158,18 +158,18 @@ package README's "Porting a board" section walks through it.
 
 ## Troubleshooting
 
-- **`.bss` overflows SRAM at link time** — the arenas exceed the board's SRAM.
+- **`.bss` overflows SRAM at link time**: the arenas exceed the board's SRAM.
   Lower the plan's `-m` budget and `-DTIGRIS_APP_FAST_ARENA_BYTES` together.
-- **`Unknown board` at configure time** — pass a supported `-DTIGRIS_BOARD`
+- **`Unknown board` at configure time**: pass a supported `-DTIGRIS_BOARD`
   value (`nucleo_f446re`, `nucleo_h753zi`, or the pico2 project).
-- **First configure fails to fetch dependencies** — the pinned sources are
+- **First configure fails to fetch dependencies**: the pinned sources are
   fetched over the network; for an offline build, point each at a local mirror
   with `-DFETCHCONTENT_SOURCE_DIR_<NAME>=<path>` (see the package README).
 
 ## Next steps
 
 - [`compile`](/toolchain/compile/) and
-  [`codegen`](/toolchain/codegen/) — the full CLI
+  [`codegen`](/toolchain/codegen/): the full CLI
   reference.
-- The [`tigris-cortex-m`](https://github.com/raws-labs/tigris-cortex-m) package —
+- The [`tigris-cortex-m`](https://github.com/raws-labs/tigris-cortex-m) package:
   board files, the example, and porting notes.
