@@ -353,8 +353,18 @@ cleanup:
 
 ## ESP-IDF deployment
 
-On ESP32 targets, store the `.tgrs` plan on a dedicated flash partition and use
-`esp_partition_mmap()` so the loader can reference it without a RAM copy.
+On ESP32 targets, embed the `.tgrs` plan in the app with `EMBED_FILES` in your
+component's `CMakeLists.txt` and pass the embedded symbol to
+`tigris_plan_load()`. The linker places it in `.rodata`, which is memory-mapped
+flash, so the loader references the plan in place with no RAM copy and no
+partition table entry. The
+[ESP-IDF tutorial](/tutorials/esp-idf-deployment/) walks a working project.
+
+Store the plan on a dedicated flash partition and reach it with
+`esp_partition_mmap()` instead when you want to swap models without rebuilding
+the firmware, or when the plan makes the app image too large for the app
+partition.
+
 Allocate the fast arena with `heap_caps_malloc(MALLOC_CAP_INTERNAL)` and, when
 available, the slow buffer with `heap_caps_malloc(MALLOC_CAP_SPIRAM)`. Keep the
 executor workspace outside the task stack unless it is explicitly budgeted
