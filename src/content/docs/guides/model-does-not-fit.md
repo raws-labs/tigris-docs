@@ -19,7 +19,6 @@ tigris analyze mobilenetv2.onnx -m 256K --input-shape input:1x3x224x224
 ```
 
 ```
-input compiled for 1x3x224x224
 ╭─────────────────────────── TiGrIS - mobilenetv2 ───────────────────────────╮
 │ Operators            65                                                    │
 │ Tensors              244 (66 activations)                                  │
@@ -191,7 +190,6 @@ tigris analyze mobilenetv2-int8.onnx -m 64K --input-shape input:1x3x224x224
 ```
 
 ```
-input compiled for 1x3x224x224
 ╭──────────────────────── TiGrIS - mobilenetv2-int8 ─────────────────────────╮
 │ Operators            65                                                    │
 │ Tensors              175 (66 activations)                                  │
