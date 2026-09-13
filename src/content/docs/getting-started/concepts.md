@@ -93,7 +93,7 @@ The same `.tgrs` plan works with any backend. Swapping `reference` for `esp-nn` 
 
 ## Quantization
 
-TiGrIS handles both float32 and int8 quantized models. For int8, the compiler folds ONNX QDQ (QuantizeLinear / DequantizeLinear) nodes at compile time, precomputing the fixed-point multipliers and right-shift values each operator needs.
+TiGrIS handles both float32 and int8 quantized models. For int8, the compiler folds ONNX QDQ (QuantizeLinear / DequantizeLinear) nodes at compile time, precomputing the fixed-point multipliers and right-shift values each operator needs. A plan runs on one dtype throughout, so a quantized plan hands back int8 with the output scale and zero point recorded in the plan; dequantize on the host if you want the model's float values.
 Both symmetric and asymmetric quantization are supported. Quantize your model with any standard tool and TiGrIS handles the rest.
 
 Int8 is recommended for embedded deployment: it cuts memory by 4x and unlocks SIMD kernel backends (ESP-NN, CMSIS-NN) that only support integer arithmetic.
