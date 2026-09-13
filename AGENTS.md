@@ -18,7 +18,8 @@ Documentation site for TiGrIS at tigris-ml.dev: Astro Starlight docs, a native A
 - `src/styles/brand.css`: theme; fonts are Inter and JetBrains Mono from fontsource. `public/third-party-notices.txt` lists the font licenses.
 
 ## Gotchas
-- Docs describe the released `tigris-ml` version, not `develop`; refresh `src/data/operator_capabilities_v1.json` and CLI output samples at a release, not from the compiler's integration branch.
+- Top-level docs describe the compiler's integration branch and are labelled `develop` in the version selector; archived versions under a slug describe releases. Track `develop` as it moves, and archive a version at a release rather than holding edits back.
+- `src/data/operator_capabilities_v1.json` belongs to the archived release it is rendered for, so refresh it when archiving a version, not on every compiler change.
 - Because `ThemeSelect` and `PageTitle` are overridden, `starlight-versions` does not inject its own UI; `Header.astro` renders `VersionSelect` and `PageTitle.astro` renders the plugin's `VersionNotice` by hand.
 - Docs code blocks use Expressive Code (github-dark/github-light, flat frames via `styleOverrides`); the blog uses Astro's Shiki config, with dark token colors carried as `--shiki-dark` vars toggled in the blog layout CSS.
 - `main` is the only branch; `editLink` points at `raws-labs/tigris-docs/edit/main/`.
