@@ -52,10 +52,11 @@ export default defineConfig({
         // are post-0.6.0). Because we override ThemeSelect/PageTitle, the plugin
         // steps aside and we render VersionSelect/VersionNotice ourselves.
         starlightVersions({
-          // Current top-level docs = the in-development line. "latest" is generic
-          // (the next release could be v0.6.1 or v0.7.0); 0.6.0 is the frozen
-          // release. URL slugs stay clean (/0.6.0/); labels carry the "v".
-          current: { label: "latest" },
+          // Top-level docs are the integration branch, labelled so a reader can
+          // see that: they describe what develop does, not what the last release
+          // shipped. Archived versions are the releases, whose URL slugs stay
+          // clean (/0.6.0/) while their labels carry the "v".
+          current: { label: "develop" },
           versions: [{ slug: "0.6.0", label: "v0.6.0" }],
         }),
       ],
