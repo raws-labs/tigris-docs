@@ -174,6 +174,58 @@ const char *tigris_mem_error_str(tigris_mem_error_t err);
 
 Return a human-readable string for a memory error code.
 
+## Model interface
+
+A plan executes on one dtype, which is not always the dtype the model file
+declares at its boundary: an ONNX graph states float32 and quantizes inside
+itself, and the compiler folds that quantization into the boundary tensor. The
+plan records the declared dtype per model input and output, and these calls
+move data across the boundary, so an application hands over and reads back
+exactly what the model declares.
+
+### tigris_iface_bytes
+
+```c
+uint32_t tigris_iface_bytes(
+    const tigris_plan_t *plan,
+    uint16_t             tensor_idx);
+```
+
+Bytes the caller supplies for a model input, or receives for a model output, in
+the dtype the model declares. Returns 0 when the tensor is not a model boundary
+tensor, or when its declared dtype has no conversion.
+
+### tigris_input_write
+
+```c
+tigris_error_t tigris_input_write(
+    const tigris_plan_t *plan,
+    tigris_mem_t        *mem,
+    uint16_t             tensor_idx,
+    const void          *src,
+    uint32_t             src_bytes);
+```
+
+Convert `src` into the model input tensor, which must already be allocated.
+`src_bytes` must equal `tigris_iface_bytes()`. Returns
+`TIGRIS_ERR_BAD_INTERFACE` when the declared dtype has no conversion to what
+the plan stores, so an unsupported interface fails rather than being
+approximated.
+
+### tigris_output_read
+
+```c
+tigris_error_t tigris_output_read(
+    const tigris_plan_t *plan,
+    const tigris_mem_t  *mem,
+    uint16_t             tensor_idx,
+    void                *dst,
+    uint32_t             dst_bytes);
+```
+
+Convert a model output tensor into `dst` after a run. `dst_bytes` must equal
+`tigris_iface_bytes()`.
+
 ## Executor
 
 ### tigris_run
@@ -195,8 +247,10 @@ omit that storage; `tigris_run()` then returns
 `tigris_run_with_workspace_buffer()` API.
 
 The caller must have loaded the plan, initialized `tigris_mem_t` with fast and
-slow buffers, and allocated model input tensors in slow with data filled in.
-After return, model output tensors are in the slow buffer. `stats` may be NULL.
+slow buffers, and allocated model input tensors in slow with data filled in,
+which `tigris_input_write()` does in the dtype the model declares. After
+return, model output tensors are in the slow buffer, and
+`tigris_output_read()` converts them back to that dtype. `stats` may be NULL.
 
 The executor allocates within the supplied arenas, compacts live fast tensors
 when required, and can overflow some normal-stage allocations to the slow

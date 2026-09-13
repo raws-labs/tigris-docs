@@ -122,6 +122,7 @@ export default defineConfig({
       // the current page.
       sidebar: [
         { label: "Getting Started", collapsed: true, items: [{ autogenerate: { directory: "getting-started" } }] },
+        { label: "Guides", collapsed: true, items: [{ autogenerate: { directory: "guides" } }] },
         { label: "CLI Reference", collapsed: true, items: [{ autogenerate: { directory: "toolchain" } }] },
         { label: "Architecture", collapsed: true, items: [{ autogenerate: { directory: "architecture" } }] },
         { label: "Runtime", collapsed: true, items: [{ autogenerate: { directory: "runtime" } }] },
