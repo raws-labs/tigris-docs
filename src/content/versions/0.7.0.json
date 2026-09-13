@@ -12,6 +12,17 @@
       ]
     },
     {
+      "label": "Tutorials",
+      "collapsed": true,
+      "items": [
+        {
+          "autogenerate": {
+            "directory": "tutorials"
+          }
+        }
+      ]
+    },
+    {
       "label": "Guides",
       "collapsed": true,
       "items": [
@@ -34,17 +45,6 @@
       ]
     },
     {
-      "label": "Architecture",
-      "collapsed": true,
-      "items": [
-        {
-          "autogenerate": {
-            "directory": "architecture"
-          }
-        }
-      ]
-    },
-    {
       "label": "Runtime",
       "collapsed": true,
       "items": [
@@ -56,12 +56,12 @@
       ]
     },
     {
-      "label": "Tutorials",
+      "label": "Architecture",
       "collapsed": true,
       "items": [
         {
           "autogenerate": {
-            "directory": "tutorials"
+            "directory": "architecture"
           }
         }
       ]
