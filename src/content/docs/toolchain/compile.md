@@ -23,6 +23,7 @@ tigris compile MODEL [OPTIONS]
 | `-f`, `--flash` | size | no | Flash budget. Warns if plan exceeds this size. |
 | `-c`, `--compress` | `none` / `lz4` | no | Weight compression (default: `none`) |
 | `--xip` | flag | no | Execute-in-place: weights read directly from flash at runtime |
+| `--input-shape` | `NAME:1x3x224x224` (multiple) | no | Shape to compile an input for. Overrides what the model declares; a dimension the model leaves free is otherwise bound to 1 |
 
 ## Compilation Pipeline
 
