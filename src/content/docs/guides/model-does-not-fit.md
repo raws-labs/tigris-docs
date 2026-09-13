@@ -15,10 +15,11 @@ its 224x224 input, measured with the CLI.
 ## Start from the report
 
 ```bash
-tigris analyze mobilenetv2.onnx -m 256K --input-shape input:1x3x224x224
+tigris analyze mobilenetv2.onnx -m 256K
 ```
 
 ```
+warning: input axis 0 (batch_size) is unset; using 1 (--input-shape overrides)
 ╭─────────────────────────── TiGrIS - mobilenetv2 ───────────────────────────╮
 │ Operators            65                                                    │
 │ Tensors              244 (66 activations)                                  │
@@ -186,10 +187,11 @@ The int8 model at a 64 KiB budget, which is the 250 KiB float floor divided by
 four:
 
 ```bash
-tigris analyze mobilenetv2-int8.onnx -m 64K --input-shape input:1x3x224x224
+tigris analyze mobilenetv2-int8.onnx -m 64K
 ```
 
 ```
+warning: input axis 0 (batch_size) is unset; using 1 (--input-shape overrides)
 ╭──────────────────────── TiGrIS - mobilenetv2-int8 ─────────────────────────╮
 │ Operators            65                                                    │
 │ Tensors              175 (66 activations)                                  │

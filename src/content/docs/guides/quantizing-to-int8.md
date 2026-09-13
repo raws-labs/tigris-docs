@@ -73,10 +73,11 @@ quantize_static(
 Then compile as usual:
 
 ```bash
-tigris analyze model.int8.onnx -m 64K --input-shape input:1x3x224x224
+tigris analyze model.int8.onnx -m 64K
 ```
 
 ```
+warning: input axis 0 (batch_size) is unset; using 1 (--input-shape overrides)
 ╭────────────────────── TiGrIS - mobilenetv2.qdq-int8 ───────────────────────╮
 │ Operators            65                                                    │
 │ Tensors              174 (66 activations)                                  │
