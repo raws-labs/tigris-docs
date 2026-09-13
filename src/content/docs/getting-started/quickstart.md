@@ -5,7 +5,7 @@ sidebar:
   order: 105
 ---
 
-Take a supported static-shape ONNX model, compile it for a bounded SRAM budget,
+Take a supported ONNX model, compile it for a bounded SRAM budget,
 and generate the target integration code. This walkthrough uses the matched
 INT8 MobileNetV1 model from the benchmark repository and a 64 KiB fast-memory
 budget. Exact stage counts and tiling decisions are compiler results, so they
@@ -15,7 +15,9 @@ may improve between releases. Independently captured measurements remain in
 ## Prerequisites
 
 - Python 3.10+ with `tigris-ml` installed
-- A supported static-shape float32 or fully quantized INT8 ONNX model
+- A supported float32 or fully quantized INT8 ONNX model. A dimension the
+  model leaves free, such as the batch dimension of a stock export, is bound
+  to 1; `--input-shape input:4x3x224x224` compiles for a different one
 
 ```bash
 pip install tigris-ml

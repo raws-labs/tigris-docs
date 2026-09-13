@@ -21,6 +21,7 @@ tigris analyze MODEL [OPTIONS]
 | `-m`, `--mem` | size (multiple) | no | Memory pools, fast to slow (e.g. `-m 256K` or `-m 256K -m 8M`) |
 | `-f`, `--flash` | size | no | Flash budget for plan fit check (e.g. `4M`) |
 | `-v`, `--verbose` | flag | no | Show per-stage breakdown, tiling analysis, and budget sweep tables |
+| `--input-shape` | `NAME:1x3x224x224` (multiple) | no | Shape to compile an input for. Overrides what the model declares; a dimension the model leaves free is otherwise bound to 1 |
 
 ## Size Syntax
 

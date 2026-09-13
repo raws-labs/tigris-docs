@@ -19,6 +19,7 @@ tigris simulate MODEL [OPTIONS]
 |------|------|----------|-------------|
 | `MODEL` | path | yes | ONNX model file (.onnx) |
 | `-m`, `--mem` | size (multiple) | no | Memory pools, fast to slow (e.g. `-m 256K` or `-m 256K -m 8M`) |
+| `--input-shape` | `NAME:1x3x224x224` (multiple) | no | Shape to compile an input for. Overrides what the model declares; a dimension the model leaves free is otherwise bound to 1 |
 
 Size arguments accept plain bytes (`262144`), kilobytes (`256K`), megabytes (`4M`), or fractional values (`2.5M`). See [tigris analyze](/toolchain/analyze/) for the full size syntax table.
 

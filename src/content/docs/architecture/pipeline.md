@@ -11,7 +11,9 @@ TiGrIS compiles an ONNX model into a `.tgrs` execution plan through seven stages
 
 Parses the ONNX protobuf and builds an `AnalyzedGraph`, the compiler's internal IR. This stage:
 
-- Runs ONNX shape inference to resolve all tensor dimensions.
+- Gives every graph input a concrete shape. An input named by `--input-shape` takes the shape given there; any other free dimension is bound to 1 and reported, since the plan is then sized for a value the compiler chose.
+- Folds the shape subgraph. Exporters compute the classifier reshape from `Shape` at run time, which leaves everything downstream at unknown rank; evaluating that arithmetic to constants is what lets inference resolve the rest. A dimension that still cannot be resolved is an error.
+- Runs ONNX shape inference to resolve the remaining tensor dimensions.
 - Extracts weight tensors from ONNX initializers into `weight_data` entries.
 - Topologically sorts the graph using DFS post-order with reversed child order. Reversing child order biases the schedule toward early tensor consumption, which reduces peak live memory.
 
@@ -23,7 +25,7 @@ The `analyze` command runs stages 1 through 4 and prints the results without pro
 
 ## 2. Normalization
 
-Thirteen passes run in fixed order. Each pass simplifies the graph toward the runtime's operator set. Order matters because some passes depend on earlier ones having run.
+Fifteen passes run in fixed order. Each pass simplifies the graph toward the runtime's operator set. Order matters because some passes depend on earlier ones having run.
 
 ### Pass order
 
@@ -43,15 +45,19 @@ Thirteen passes run in fixed order. Each pass simplifies the graph toward the ru
 
 8. **ReduceMean to GAP.** Replaces `ReduceMean(axes=[2,3])` with `GlobalAveragePool`.
 
-9. **Shape op fold.** Removes shape-computation chains (Shape, Gather, Unsqueeze, Concat) that feed into Reshape. The target shape is resolved statically and stored as an attribute.
+9. **Shape op fold.** Removes any shape-computation chain (Shape, Gather, Unsqueeze, Concat) that reaches the IR still feeding a Reshape. The target shape is resolved statically and stored as an attribute. Model loading folds most of this arithmetic before the IR exists, so this pass catches what inference left behind.
 
 10. **Resize scale extract.** Pulls integer scale factors from Resize's constant inputs and stores them as op attributes.
 
-11. **Concat axis normalize.** Rewrites Concat's `axis` attribute from NCHW to NHWC layout convention (the runtime's native layout).
+11. **Metadata operand strip.** Drops constant shape and bound operands from Clip, Pad, ReduceMean, Reshape, Resize, Squeeze and Unsqueeze. The passes above have lifted them into attributes and into the resolved output shape, and leaving them on the operator makes the emitter bind an index vector as its weight. An operand no pass resolved is left in place so validation reports the operator.
 
-12. **Output transpose trim.** Removes trailing `Transpose` ops before model outputs. Host-side post-processing handles layout conversion.
+12. **Concat axis normalize.** Rewrites Concat's `axis` attribute from NCHW to NHWC layout convention (the runtime's native layout).
 
-13. **Activation fuse.** Absorbs `Relu` or `Relu6` following Conv, DepthwiseConv, Gemm, or Conv1D into a `fused_activation` attribute on the preceding op. Runs last so all relabeling and rewiring is already done.
+13. **Output transpose trim.** Removes trailing `Transpose` ops before model outputs. Host-side post-processing handles layout conversion.
+
+14. **Activation fuse.** Absorbs `Relu` or `Relu6` following Conv, DepthwiseConv, Gemm, or Conv1D into a `fused_activation` attribute on the preceding op. Runs after all relabeling and rewiring is done.
+
+15. **Unreferenced constant drop.** Forgets constants no remaining operator consumes. Folded subgraphs and absorbed activations leave their operands behind, and every `weight_data` entry is written into the plan blob. Runs last so it sees the final operator set.
 
 ## 3. Lifetime Analysis
 
