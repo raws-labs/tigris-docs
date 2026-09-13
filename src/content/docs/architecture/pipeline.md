@@ -25,41 +25,43 @@ The `analyze` command runs stages 1 through 4 and prints the results without pro
 
 ## 2. Normalization
 
-Sixteen passes run in fixed order. Each pass simplifies the graph toward the runtime's operator set. Order matters because some passes depend on earlier ones having run.
+Seventeen passes run in fixed order. Each pass simplifies the graph toward the runtime's operator set. Order matters because some passes depend on earlier ones having run.
 
 ### Pass order
 
 1. **Constant op fold.** Converts ONNX `Constant` nodes into `weight_data` entries. Must run first so that downstream passes see weights, not op references.
 
-2. **QDQ fold.** Extracts `QuantizeLinear` / `DequantizeLinear` pairs into `QuantParam` annotations on tensors. Keeps int8 weight values. Uses deferred cleanup to handle shared scale/zero-point constants.
+2. **QDQ fold.** Extracts `QuantizeLinear` / `DequantizeLinear` pairs into `QuantParam` annotations on tensors. Keeps int8 weight values. Uses deferred cleanup to handle shared scale/zero-point constants. An ONNX quantizer states activations as uint8 by default; uint8 value `v` and int8 value `v - 128` denote the same real number under zero points that differ by the same 128, so the tensor is restated in the signed domain the kernels work in, stored data included. A changed model input or output encoding is reported.
 
-3. **BatchNorm fold.** Absorbs BatchNorm parameters (gamma, beta, mean, variance) into the preceding Conv's weight and bias tensors. The BatchNorm node is removed.
+3. **Matrix product relabel.** The fully-connected kernels index the weight as `W[oc * IC + ic]`, which is `Gemm` with `transB=1`. A `MatMul` states the same product with the weight the other way round, and so does a `Gemm` that leaves `transB` at its default, so a constant weight is transposed and the operator relabeled, with a per-channel quantization axis moving along with it. A product whose second operand is not a constant matrix is left alone, since there is no kernel for it.
 
-4. **Constant bias fold.** A constant `Add` reading a quantized operator's output is requantized into that operator's int32 accumulator domain and becomes its bias. A quantizer that leaves a classifier bias unfused writes it as a float `Add` on the dequantized product, which is the one form the runtime cannot execute, since a constant operand carries no scale in the plan. The plan then ends at the product's own int8 encoding rather than the float the ONNX graph declares, and the compiler reports the scale and zero point it settled on. A float graph executes the `Add` as written and is left alone.
+4. **BatchNorm fold.** Absorbs BatchNorm parameters (gamma, beta, mean, variance) into the preceding Conv's weight and bias tensors. The BatchNorm node is removed.
 
-5. **SiLU decompose.** Rewrites `Silu` into `Sigmoid` + `Mul`. The runtime implements Sigmoid via an int8 lookup table.
+5. **Constant bias fold.** A constant `Add` reading a quantized operator's output is requantized into that operator's int32 accumulator domain and becomes its bias. A quantizer that leaves a classifier bias unfused writes it as a float `Add` on the dequantized product, which is the one form the runtime cannot execute, since a constant operand carries no scale in the plan. The plan then ends at the product's own int8 encoding rather than the float the ONNX graph declares, and the compiler reports the scale and zero point it settled on. A float graph executes the `Add` as written and is left alone.
 
-6. **DepthwiseConv relabel.** Conv nodes where `group == C_in` are relabeled to `DepthwiseConv`. This selects the correct runtime kernel.
+6. **SiLU decompose.** Rewrites `Silu` into `Sigmoid` + `Mul`. The runtime implements Sigmoid via an int8 lookup table.
 
-7. **Conv1D relabel.** Conv nodes with 1D kernels are relabeled to `Conv1D`.
+7. **DepthwiseConv relabel.** Conv nodes where `group == C_in` are relabeled to `DepthwiseConv`. This selects the correct runtime kernel.
 
-8. **Clip to Relu6.** Replaces `Clip(min=0, max=6)` with `Relu6`.
+8. **Conv1D relabel.** Conv nodes with 1D kernels are relabeled to `Conv1D`.
 
-9. **ReduceMean to GAP.** Replaces `ReduceMean(axes=[2,3])` with `GlobalAveragePool`.
+9. **Clip to Relu6.** Replaces `Clip(min=0, max=6)` with `Relu6`.
 
-10. **Shape op fold.** Removes any shape-computation chain (Shape, Gather, Unsqueeze, Concat) that reaches the IR still feeding a Reshape. The target shape is resolved statically and stored as an attribute. Model loading folds most of this arithmetic before the IR exists, so this pass catches what inference left behind.
+10. **ReduceMean to GAP.** Replaces `ReduceMean(axes=[2,3])` with `GlobalAveragePool`.
 
-11. **Resize scale extract.** Pulls integer scale factors from Resize's constant inputs and stores them as op attributes.
+11. **Shape op fold.** Removes any shape-computation chain (Shape, Gather, Unsqueeze, Concat) that reaches the IR still feeding a Reshape. The target shape is resolved statically and stored as an attribute. Model loading folds most of this arithmetic before the IR exists, so this pass catches what inference left behind.
 
-12. **Metadata operand strip.** Drops constant shape and bound operands from Clip, Pad, ReduceMean, Reshape, Resize, Squeeze and Unsqueeze. The passes above have lifted them into attributes and into the resolved output shape, and leaving them on the operator makes the emitter bind an index vector as its weight. An operand no pass resolved is left in place so validation reports the operator.
+12. **Resize scale extract.** Pulls integer scale factors from Resize's constant inputs and stores them as op attributes.
 
-13. **Concat axis normalize.** Rewrites Concat's `axis` attribute from NCHW to NHWC layout convention (the runtime's native layout).
+13. **Metadata operand strip.** Drops constant shape and bound operands from Clip, Pad, ReduceMean, Reshape, Resize, Squeeze and Unsqueeze. The passes above have lifted them into attributes and into the resolved output shape, and leaving them on the operator makes the emitter bind an index vector as its weight. An operand no pass resolved is left in place so validation reports the operator.
 
-14. **Output transpose trim.** Removes trailing `Transpose` ops before model outputs. Host-side post-processing handles layout conversion.
+14. **Concat axis normalize.** Rewrites Concat's `axis` attribute from NCHW to NHWC layout convention (the runtime's native layout).
 
-15. **Activation fuse.** Absorbs `Relu` or `Relu6` following Conv, DepthwiseConv, Gemm, Conv1D, or Add into a `fused_activation` attribute on the preceding op, which then takes over the activation's output tensor and its quantization. Quantize is monotonic, so the plan encodes the clamp as a lower bound at the output zero point. An intermediate carrying its own scale is a quantization step of its own and is left in place, since folding past it would drop that rounding. Runs after all relabeling and rewiring is done.
+15. **Output transpose trim.** Removes trailing `Transpose` ops before model outputs. Host-side post-processing handles layout conversion.
 
-16. **Unreferenced constant drop.** Forgets constants no remaining operator consumes. Folded subgraphs and absorbed activations leave their operands behind, and every `weight_data` entry is written into the plan blob. Runs last so it sees the final operator set.
+16. **Activation fuse.** Absorbs `Relu` or `Relu6` following Conv, DepthwiseConv, Gemm, Conv1D, or Add into a `fused_activation` attribute on the preceding op, which then takes over the activation's output tensor and its quantization. Quantize is monotonic, so the plan encodes the clamp as a lower bound at the output zero point. An intermediate carrying its own scale is a quantization step of its own and is left in place, since folding past it would drop that rounding. Runs after all relabeling and rewiring is done.
+
+17. **Unreferenced constant drop.** Forgets constants no remaining operator consumes. Folded subgraphs and absorbed activations leave their operands behind, and every `weight_data` entry is written into the plan blob. Runs last so it sees the final operator set.
 
 ## 3. Lifetime Analysis
 
