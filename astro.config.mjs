@@ -46,7 +46,7 @@ export default defineConfig({
         // The blog is a custom (non-docs) collection the validator can't model;
         // the frozen 0.6.0 snapshot is carved down (no tutorials) so isn't
         // re-validated. Both are excluded.
-        starlightLinksValidator({ exclude: ["/blog/**", "/0.6.0/**"] }),
+        starlightLinksValidator({ exclude: ["/blog/**", "/0.6.0/**", "/0.7.0/**"] }),
         // Versioned docs. Current top-level docs = the forward-looking line
         // ("0.7.0"); 0.6.0 is a frozen snapshot (tutorials carved out — they
         // are post-0.6.0). Because we override ThemeSelect/PageTitle, the plugin
@@ -57,7 +57,10 @@ export default defineConfig({
           // shipped. Archived versions are the releases, whose URL slugs stay
           // clean (/0.6.0/) while their labels carry the "v".
           current: { label: "develop" },
-          versions: [{ slug: "0.6.0", label: "v0.6.0" }],
+          versions: [
+            { slug: "0.7.0", label: "v0.7.0" },
+            { slug: "0.6.0", label: "v0.6.0" },
+          ],
         }),
       ],
       // "Last updated" from git commit history, at the bottom of each doc.
