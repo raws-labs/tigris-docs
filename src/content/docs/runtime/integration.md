@@ -45,7 +45,8 @@ if (err != TIGRIS_OK) {
 
 Align the plan base to `TIGRIS_TENSOR_ALIGN` when an optimized backend reads
 uncompressed XIP weights directly from it. This is 16 bytes on DSP-enabled
-Cortex-M (`__ARM_FEATURE_DSP`). Give embedded arrays and linker sections an
+Cortex-M (`__ARM_FEATURE_DSP`) and on ESP32-S3, where
+`tigris_esp_nn_prepare()` refuses a plan with misaligned weights. Give embedded arrays and linker sections an
 explicit alignment, and preserve it for custom flash mappings or loaded
 buffers.
 
@@ -353,10 +354,11 @@ cleanup:
 
 ## ESP-IDF deployment
 
-On ESP32 targets, embed the `.tgrs` plan in the app with `EMBED_FILES` in your
-component's `CMakeLists.txt` and pass the embedded symbol to
-`tigris_plan_load()`. The linker places it in `.rodata`, which is memory-mapped
-flash, so the loader references the plan in place with no RAM copy and no
+On ESP32 targets, embed the `.tgrs` plan in the app with a small assembly file
+that places it on a 16-byte boundary (`.balign 16` followed by `.incbin`), and
+pass its start symbol to `tigris_plan_load()`. `EMBED_FILES` does not align, and
+ESP-NN reads filters in place. The plan lands in `.rodata`, which is
+memory-mapped flash, so the loader references it with no RAM copy and no
 partition table entry. The
 [ESP-IDF tutorial](/tutorials/esp-idf-deployment/) walks a working project.
 
