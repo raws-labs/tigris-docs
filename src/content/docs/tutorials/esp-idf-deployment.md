@@ -85,8 +85,27 @@ only models whose activations fit a single SRAM arena are supported. See the
 The simplest integration embeds the plan in the firmware, the way the
 `getting-started` example does. Use its `main/` as a working template:
 
-- **`main/CMakeLists.txt`**: `EMBED_FILES "model.tgrs"` so the plan is linked
-  into the app.
+- **`main/plan.S`**: embeds the plan on a 16-byte boundary. ESP-NN reads the
+  filters in place from the plan and needs them 16-byte aligned, which
+  `EMBED_FILES` does not provide:
+
+  ```asm
+      .section .rodata.tigris_plan, "a"
+      .balign 16
+      .global model_tgrs_start
+  model_tgrs_start:
+      .incbin "model.tgrs"
+      .global model_tgrs_end
+  model_tgrs_end:
+  ```
+- **`main/CMakeLists.txt`**: add `plan.S` to `SRCS` and let the assembler find
+  the plan next to it:
+
+  ```cmake
+  set_source_files_properties(plan.S PROPERTIES
+      COMPILE_OPTIONS "-Wa,-I${CMAKE_CURRENT_SOURCE_DIR}"
+      OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/model.tgrs")
+  ```
 - **`main/main.c`**:
   1. Load the embedded bytes with `tigris_plan_load()`.
   2. Allocate a two-tier arena. Take the fast tier from internal SRAM
@@ -94,7 +113,8 @@ The simplest integration embeds the plan in the firmware, the way the
      plus the executor workspace from `tigris_executor_workspace_required()`,
      and initialize `tigris_mem_t` with `tigris_mem_init()`.
   3. Call `tigris_esp_nn_prepare()` (guarded by `TIGRIS_HAS_ESP_NN`) to reserve
-     the ESP-NN scratch.
+     the ESP-NN scratch. It returns -2 when a Conv or depthwise weight is not
+     16-byte aligned, which means the plan buffer is misaligned.
   4. Fill the model input, then run with `tigris_run_with_workspace_buffer()`
      using `tigris_dispatch_kernel_esp_nn` (or `tigris_dispatch_kernel_s8` for
      the portable INT8 path).
