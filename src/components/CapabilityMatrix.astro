@@ -5,6 +5,8 @@
 // One generated artifact per documented version: an archived page renders the
 // matrix its own release produced, not the newest one.
 import develop from "../data/operator_capabilities_v1.json";
+import v090 from "../data/operator_capabilities_v1.0.9.0.json";
+import v080 from "../data/operator_capabilities_v1.0.8.0.json";
 import v070 from "../data/operator_capabilities_v1.0.7.0.json";
 import v060 from "../data/operator_capabilities_v1.0.6.0.json";
 
@@ -14,6 +16,8 @@ interface Props {
 const { mode = "matrix" } = Astro.props;
 
 const byVersion: Record<string, typeof develop> = {
+  "0.9.0": v090 as typeof develop,
+  "0.8.0": v080 as typeof develop,
   "0.7.0": v070 as typeof develop,
   "0.6.0": v060 as typeof develop,
 };
