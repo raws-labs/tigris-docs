@@ -78,6 +78,9 @@ tigris codegen mobilenet.tgrs --backend esp-nn -o mobilenet.c
 Same plan, different kernels. `codegen` writes target-specific runtime glue;
 the `.tgrs` plan remains a separate deployment artifact loaded from a file,
 flash partition, or linker-provided flash symbols depending on the backend.
+
+To start from a precompiled model instead, `tigris zoo fetch` downloads a plan
+with its runtime requirements; see [`tigris zoo`](/toolchain/zoo/).
 See [Runtime Integration](/runtime/integration/) for
 manual loading details.
 
