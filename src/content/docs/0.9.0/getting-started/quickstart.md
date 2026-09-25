@@ -56,11 +56,11 @@ tigris compile mobilenet_v1_matched.onnx -m 64K -m 8M -f 16M --xip -o mobilenet.
 | Flag | Meaning |
 |------|---------|
 | `-m 64K -m 8M` | Memory pools, fast to slow. First is SRAM budget, second is PSRAM. The compiler decides what goes where. |
-| `-f 16M` | Flash budget. Warns if the plan doesn't fit. |
+| `-f 16M` | Flash budget. Fails if the plan doesn't fit. |
 | `--xip` | Execute-in-place. Weights are read from flash at runtime, not copied to SRAM. |
 | `-o mobilenet.tgrs` | Output path for the binary plan. |
 
-PSRAM is required for multi-stage models. Without it, only single-stage models (where the full model fits in one SRAM arena) are supported.
+Multi-stage models keep the tensors that cross stage boundaries in the slow arena, normally PSRAM or another writable RAM region. Flash cannot serve, because it is read-only.
 
 ## Step 3: Generate C code
 
