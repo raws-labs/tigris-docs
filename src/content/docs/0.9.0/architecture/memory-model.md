@@ -9,7 +9,7 @@ slug: 0.9.0/architecture/memory-model
 
 TiGrIS uses a three-region memory model designed for embedded devices with heterogeneous memory: small fast SRAM, large slow PSRAM, and read-only flash. The compiler fixes the operator schedule, stage and tile strategy, and activation-memory bounds. The runtime then assigns addresses from caller-provided fast and slow arenas with bounded bump allocation, reset, and compaction. The core executor does not call a general-purpose heap allocator during inference; it can still report out-of-memory when either arena is too small.
 
-PSRAM is required for any model that compiles to more than one stage. Intermediate tensors spill from SRAM to PSRAM between stages because flash is read-only and cannot serve as spill storage. Models that fit in a single stage can run with SRAM only.
+Tensors that cross stage boundaries spill from the fast arena to the slow arena, normally PSRAM or another writable RAM region such as a second SRAM bank. Flash is read-only and cannot serve as spill storage.
 
 ## Memory regions
 
@@ -24,7 +24,7 @@ The primary working memory for inference. All activation tensors during op execu
 
 ### PSRAM (slow buffer)
 
-External RAM for inter-stage tensor storage. Required for any multi-stage plan. Present on targets like ESP32-S3 (2-16 MB PSRAM depending on variant).
+Inter-stage tensor storage, needed by any multi-stage plan. Usually external PSRAM, present on targets like ESP32-S3 (2-16 MB depending on variant); any other writable RAM region works as well.
 
 * Bump allocator, persistent across stages.
 * Compacted after each stage: dead tensors are reclaimed and live tensors are shifted down.
