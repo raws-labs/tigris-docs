@@ -1,0 +1,80 @@
+---
+title: "tigris zoo"
+description: "Use tigris zoo to find and download precompiled .tgrs models with their runtime requirements, evaluation and license."
+sidebar:
+  order: 250
+slug: 0.9.0/toolchain/zoo
+---
+
+Find and download precompiled `.tgrs` models from the
+[TiGrIS model zoo](https://huggingface.co/raws-labs/tigris-zoo). Downloads need
+no account.
+
+## Usage
+
+```bash
+tigris zoo list [OPTIONS]
+tigris zoo fetch [MODEL] [OPTIONS]
+tigris codegen downloaded-model/model.tgrs --format core -o model.c
+```
+
+## Filters
+
+`list` and `fetch` take the same filters. All are optional; unspecified
+resources stay unconstrained.
+
+| Flag | Description |
+|------|-------------|
+| `--model` | Model name (`fetch` takes it as the first argument) |
+| `--category` | Task category, e.g. `time-series-forecasting` |
+| `--runtime` | A runtime release the build must be compatible with, e.g. `0.10.0` |
+| `--backend` | Kernel backend, e.g. `reference` |
+| `--quantization`, `--quant` | Weight and activation precision, e.g. `float32` |
+| `-m`, `--mem` | Maximum fast arena; repeat for the slow arena |
+| `-f`, `--flash` | Maximum plan size in bytes |
+
+`-m` and `-f` bound the plan's own arenas and size, not total application RAM or
+flash. The newest published build that matches wins.
+
+## `tigris zoo list`
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Print the matching catalog entries as JSON |
+| `-v`, `--verbose` | Show artifact IDs, runtime compatibility and publication details |
+
+Without `--verbose` it prints a table of model, category, precision and memory.
+
+## `tigris zoo fetch`
+
+| Flag | Description |
+|------|-------------|
+| `--artifact ID` | Fetch an exact build, including a withdrawn one (with a warning) |
+| `-o`, `--output` | New destination directory; defaults to the artifact ID |
+
+`fetch` verifies every file hash and never replaces an existing directory.
+
+## Global options
+
+| Flag | Description |
+|------|-------------|
+| `--offline` | Use the Hugging Face cache without network requests |
+| `--catalog FILE` | Read a local zoo snapshot instead of the model repository |
+| `--revision` | Catalog revision to read; defaults to `main` |
+
+## What a download contains
+
+| File | Content |
+|------|---------|
+| `model.tgrs` | The plan |
+| `readme.md` | Input and output conventions, normalization, evaluation and limitations |
+| `evaluation.json` | Task measurements and runtime parity results |
+| `example-input.bin`, `example-output.bin` | One input tensor and its expected output |
+| `license.txt` | The model's license and data attribution |
+| `manifest.json` | The build record as published: compiler, sources, file hashes |
+| `download.json` | The current runtime constraints, tested runtime releases and catalog revision |
+
+Use `download.json` for dependency decisions. Runtime ranges include both ends;
+a missing maximum means no known upper bound. Tested releases are listed
+separately, and matching a range does not claim every release in it was tested.
+The runtime is supplied separately.
