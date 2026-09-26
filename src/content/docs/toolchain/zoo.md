@@ -14,6 +14,7 @@ no account.
 ```bash
 tigris zoo list [OPTIONS]
 tigris zoo fetch [MODEL] [OPTIONS]
+tigris run downloaded-model/model.tgrs --input downloaded-model/example-input.bin --output prediction.bin
 tigris codegen downloaded-model/model.tgrs --format core -o model.c
 ```
 
@@ -68,7 +69,7 @@ Without `--verbose` it prints a table of model, category, precision and memory.
 | `model.tgrs` | The plan |
 | `readme.md` | Input and output conventions, normalization, evaluation and limitations |
 | `evaluation.json` | Task measurements and runtime parity results |
-| `example-input.bin`, `example-output.bin` | One input tensor and its expected output |
+| `example-input.bin`, `example-output.bin` | One input tensor and its ONNX Runtime reference output |
 | `license.txt` | The model's license and data attribution |
 | `manifest.json` | The build record as published: compiler, sources, file hashes |
 | `download.json` | The current runtime constraints, tested runtime releases and catalog revision |
@@ -76,4 +77,26 @@ Without `--verbose` it prints a table of model, category, precision and memory.
 Use `download.json` for dependency decisions. Runtime ranges include both ends;
 a missing maximum means no known upper bound. Tested releases are listed
 separately, and matching a range does not claim every release in it was tested.
-The runtime is supplied separately.
+
+## Run a download
+
+On a native wheel, [`tigris run`](/toolchain/run/) executes a download directly
+on your machine with the bundled reference runtime:
+
+```bash
+tigris zoo fetch electricity-hourly -o downloaded-model
+tigris inspect downloaded-model/model.tgrs
+tigris run downloaded-model/model.tgrs \
+    --input downloaded-model/example-input.bin --output prediction.bin
+```
+
+Before executing, `run` checks the plan's checksum against `manifest.json` and
+the loaded runtime against the model's runtime range, taken from `download.json`
+(which must belong to the same artifact) or else from the manifest.
+`example-output.bin` comes from ONNX Runtime, so compare `prediction.bin` with it
+numerically, not byte for byte. `evaluation.json` records the tolerance and the
+parity measured for the runtime releases the model was tested with.
+
+For a device, the runtime is supplied separately: the C runtime from
+[tigris-runtime](https://github.com/raws-labs/tigris-runtime) or the ESP-IDF
+component, at a release inside the model's runtime range.
