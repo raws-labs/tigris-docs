@@ -61,7 +61,34 @@ tigris compile mobilenet_v1_matched.onnx -m 64K -m 8M -f 16M --xip -o mobilenet.
 
 Multi-stage models keep the tensors that cross stage boundaries in the slow arena, normally PSRAM or another writable RAM region. Flash cannot serve, because it is read-only.
 
-## Step 3: Generate C code
+## Step 3: Check the plan on your machine (optional)
+
+On a platform wheel of `tigris-ml`, the bundled reference runtime executes the
+plan without a board. `inspect` shows the interface the plan expects:
+
+```bash
+tigris inspect mobilenet.tgrs
+```
+
+The input is declared as float32 in stored NHWC order, `[1, 128, 128, 3]`. The
+plan quantizes it to int8 internally. A quick smoke run with a random input:
+
+```python
+import numpy as np
+from tigris.runtime import Session
+
+with Session("mobilenet.tgrs") as session:
+    inputs = {t["name"]: np.random.default_rng(0).standard_normal(t["shape"]).astype(t["dtype"])
+              for t in session.inputs}
+    outputs = session.run(inputs)
+    print({name: value.shape for name, value in outputs.items()}, session.memory)
+```
+
+This runs the portable reference kernels and confirms the plan loads and
+executes; it does not test ESP-NN numerics or device latency. For a real input
+file, use [`tigris run`](/toolchain/run/).
+
+## Step 4: Generate C code
 
 Use `codegen` to produce a backend-specific C harness:
 
@@ -84,7 +111,7 @@ with its runtime requirements; see [`tigris zoo`](/toolchain/zoo/).
 See [Runtime Integration](/runtime/integration/) for
 manual loading details.
 
-## Step 4: Simulate (optional)
+## Step 5: Simulate (optional)
 
 Inspect the execution trace before deploying:
 
@@ -95,7 +122,7 @@ tigris simulate mobilenet_v1_matched.onnx -m 64K -m 8M
 This prints the current per-stage operator order, tensor shapes, live-memory
 estimate, tile geometry, and spill/reload actions. It does not run inference.
 
-## Step 5: Deploy
+## Step 6: Deploy
 
 The `.tgrs` plan contains the operator schedule, memory map, tiling parameters, and weights. On your target:
 
