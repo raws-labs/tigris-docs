@@ -70,23 +70,18 @@ plan without a board. `inspect` shows the interface the plan expects:
 tigris inspect mobilenet.tgrs
 ```
 
-The input is declared as float32 in stored NHWC order, `[1, 128, 128, 3]`. The
-plan quantizes it to int8 internally. A quick smoke run with a random input:
+The input is declared as float32 in stored NHWC order, `[1, 128, 128, 3]`, so
+one input is 49152 float32 values, 196608 bytes. A smoke run with an all-zero
+input:
 
-```python
-import numpy as np
-from tigris.runtime import Session
-
-with Session("mobilenet.tgrs") as session:
-    inputs = {t["name"]: np.random.default_rng(0).standard_normal(t["shape"]).astype(t["dtype"])
-              for t in session.inputs}
-    outputs = session.run(inputs)
-    print({name: value.shape for name, value in outputs.items()}, session.memory)
+```bash
+head -c 196608 /dev/zero > input.bin
+tigris run mobilenet.tgrs --input input.bin --output prediction.bin
 ```
 
 This runs the portable reference kernels and confirms the plan loads and
-executes; it does not test ESP-NN numerics or device latency. For a real input
-file, use [`tigris run`](/toolchain/run/).
+executes; it does not test ESP-NN numerics or device latency. See
+[`tigris run`](/toolchain/run/) for real inputs and the Python API.
 
 ## Step 4: Generate C code
 
