@@ -1,12 +1,12 @@
 ---
-title: Quickstart
+title: "Quickstart"
 description: "End-to-end walkthrough: ONNX model to embedded deployment."
 sidebar:
   order: 105
-slug: 0.6.0/getting-started/quickstart
+slug: 0.11.0/getting-started/quickstart
 ---
 
-Take a supported static-shape ONNX model, compile it for a bounded SRAM budget,
+Take a supported ONNX model, compile it for a bounded SRAM budget,
 and generate the target integration code. This walkthrough uses the matched
 INT8 MobileNetV1 model from the benchmark repository and a 64 KiB fast-memory
 budget. Exact stage counts and tiling decisions are compiler results, so they
@@ -15,8 +15,10 @@ may improve between releases. Independently captured measurements remain in
 
 ## Prerequisites
 
-* Python 3.10+ with `tigris-ml` installed
-* A supported static-shape float32 or fully quantized INT8 ONNX model
+- Python 3.10+ with `tigris-ml` installed
+- A supported float32 or fully quantized INT8 ONNX model. A dimension the
+  model leaves free, such as the batch dimension of a stock export, is bound
+  to 1; `--input-shape input:4x3x224x224` compiles for a different one
 
 ```bash
 pip install tigris-ml
@@ -28,7 +30,7 @@ To reproduce this walkthrough, run `python models/prepare.py` from the root of
 model is reconstructed from the benchmark's TFLite model so its weights and
 quantization match the hardware comparison. For supported operators and
 backend qualifications, see
-[Operator and Backend Support](/0.6.0/runtime/operator-support/).
+[Operator and Backend Support](/0.11.0/runtime/operator-support/).
 
 ## Step 1: Analyze
 
@@ -54,13 +56,40 @@ tigris compile mobilenet_v1_matched.onnx -m 64K -m 8M -f 16M --xip -o mobilenet.
 | Flag | Meaning |
 |------|---------|
 | `-m 64K -m 8M` | Memory pools, fast to slow. First is SRAM budget, second is PSRAM. The compiler decides what goes where. |
-| `-f 16M` | Flash budget. Warns if the plan doesn't fit. |
+| `-f 16M` | Flash budget. Fails if the plan doesn't fit. |
 | `--xip` | Execute-in-place. Weights are read from flash at runtime, not copied to SRAM. |
 | `-o mobilenet.tgrs` | Output path for the binary plan. |
 
-PSRAM is required for multi-stage models. Without it, only single-stage models (where the full model fits in one SRAM arena) are supported.
+Multi-stage models keep the tensors that cross stage boundaries in the slow arena, normally PSRAM or another writable RAM region. Flash cannot serve, because it is read-only.
 
-## Step 3: Generate C code
+## Step 3: Check the plan on your machine (optional)
+
+On a platform wheel of `tigris-ml`, the bundled reference runtime executes the
+plan without a board. `inspect` shows the interface the plan expects:
+
+```bash
+tigris inspect mobilenet.tgrs
+```
+
+The input is declared as float32 in stored NHWC order, `[1, 128, 128, 3]`. The
+plan quantizes it to int8 internally. A quick smoke run with a random input:
+
+```python
+import numpy as np
+from tigris.runtime import Session
+
+with Session("mobilenet.tgrs") as session:
+    inputs = {t["name"]: np.random.default_rng(0).standard_normal(t["shape"]).astype(t["dtype"])
+              for t in session.inputs}
+    outputs = session.run(inputs)
+    print({name: value.shape for name, value in outputs.items()}, session.memory)
+```
+
+This runs the portable reference kernels and confirms the plan loads and
+executes; it does not test ESP-NN numerics or device latency. For a real input
+file, use [`tigris run`](/0.11.0/toolchain/run/).
+
+## Step 4: Generate C code
 
 Use `codegen` to produce a backend-specific C harness:
 
@@ -77,10 +106,13 @@ tigris codegen mobilenet.tgrs --backend esp-nn -o mobilenet.c
 Same plan, different kernels. `codegen` writes target-specific runtime glue;
 the `.tgrs` plan remains a separate deployment artifact loaded from a file,
 flash partition, or linker-provided flash symbols depending on the backend.
-See [Runtime Integration](/0.6.0/runtime/integration/) for
+
+To start from a precompiled model instead, `tigris zoo fetch` downloads a plan
+with its runtime requirements; see [`tigris zoo`](/0.11.0/toolchain/zoo/).
+See [Runtime Integration](/0.11.0/runtime/integration/) for
 manual loading details.
 
-## Step 4: Simulate (optional)
+## Step 5: Simulate (optional)
 
 Inspect the execution trace before deploying:
 
@@ -91,7 +123,7 @@ tigris simulate mobilenet_v1_matched.onnx -m 64K -m 8M
 This prints the current per-stage operator order, tensor shapes, live-memory
 estimate, tile geometry, and spill/reload actions. It does not run inference.
 
-## Step 5: Deploy
+## Step 6: Deploy
 
 The `.tgrs` plan contains the operator schedule, memory map, tiling parameters, and weights. On your target:
 
@@ -106,10 +138,10 @@ a fresh portable C99 harness against the matching runtime headers. Applications
 that need custom ownership, RTOS task-local workspaces, or their own entry point
 should use `codegen --format core`. The complete checked manual sequence,
 including plan-sized executor workspace and backend preparation, is in
-[Runtime Integration](/0.6.0/runtime/integration/).
+[Runtime Integration](/0.11.0/runtime/integration/).
 
 ## What's next
 
-* [Core Concepts](/0.6.0/getting-started/concepts/): tiling strategies, memory pools, execute-in-place
-* [CLI Reference](/0.6.0/toolchain/compile/): supported commands and flags
-* [Runtime Integration](/0.6.0/runtime/integration/): full C API and firmware integration
+- [Core Concepts](/0.11.0/getting-started/concepts/): tiling strategies, memory pools, execute-in-place
+- [CLI Reference](/0.11.0/toolchain/compile/): supported commands and flags
+- [Runtime Integration](/0.11.0/runtime/integration/): full C API and firmware integration

@@ -11,7 +11,7 @@ and generate the target integration code. This walkthrough uses the matched
 INT8 MobileNetV1 model from the benchmark repository and a 64 KiB fast-memory
 budget. Exact stage counts and tiling decisions are compiler results, so they
 may improve between releases. Independently captured measurements remain in
-[Introducing TiGrIS](/0.9.0/blog/introducing-tigris/).
+[Introducing TiGrIS](/blog/introducing-tigris/).
 
 ## Prerequisites
 
