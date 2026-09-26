@@ -47,7 +47,7 @@ export default defineConfig({
         // the frozen 0.6.0 snapshot is carved down (no tutorials) so isn't
         // re-validated. Both are excluded.
         starlightLinksValidator({
-          exclude: ["/blog/**", "/0.6.0/**", "/0.7.0/**", "/0.8.0/**", "/0.9.0/**"],
+          exclude: ["/blog/**", "/0.6.0/**", "/0.7.0/**", "/0.8.0/**", "/0.9.0/**", "/0.11.0/**"],
         }),
         // Versioned docs. Top-level docs track develop; each archived slug is a
         // release. 0.6.0 is a frozen snapshot with tutorials carved out, as they
@@ -60,6 +60,7 @@ export default defineConfig({
           // clean (/0.6.0/) while their labels carry the "v".
           current: { label: "develop" },
           versions: [
+            { slug: "0.11.0", label: "v0.11.0" },
             { slug: "0.9.0", label: "v0.9.0" },
             { slug: "0.8.0", label: "v0.8.0" },
             { slug: "0.7.0", label: "v0.7.0" },
