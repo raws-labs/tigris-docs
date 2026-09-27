@@ -46,7 +46,7 @@ tigris run downloaded-model/model.tgrs \
 
 ```
 ╭───────────────────────────────── TiGrIS Run ─────────────────────────────────╮
-│ Runtime          0.11.2                                                      │
+│ Runtime          0.11.3                                                      │
 │ Source           bundled                                                     │
 │ Backend          Host reference                                              │
 │ Output           prediction.bin                                              │
@@ -85,7 +85,7 @@ tigris run model.tgrs --input input.bin --output prediction.bin --json
 
 ```json
 {
-  "runtime_version": "0.11.2",
+  "runtime_version": "0.11.3",
   "runtime_source": "bundled",
   "backend": "reference",
   "output": "prediction.bin",
