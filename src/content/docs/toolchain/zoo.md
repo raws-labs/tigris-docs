@@ -69,7 +69,7 @@ Without `--verbose` it prints a table of model, category, precision and memory.
 | `model.tgrs` | The plan |
 | `readme.md` | Input and output conventions, normalization, evaluation and limitations |
 | `evaluation.json` | Task measurements and runtime parity results |
-| `example-input.bin`, `example-output.bin` | One input tensor and its ONNX Runtime reference output |
+| `example-input.bin`, `example-output.bin` | One input tensor and the reference output the model was validated against |
 | `license.txt` | The model's license and data attribution |
 | `manifest.json` | The build record as published: compiler, sources, file hashes |
 | `download.json` | The current runtime constraints, tested runtime releases and catalog revision |
@@ -93,9 +93,10 @@ tigris run downloaded-model/model.tgrs \
 Before executing, `run` checks the plan's checksum against `manifest.json` and
 the loaded runtime against the model's runtime range, taken from `download.json`
 (which must belong to the same artifact) or else from the manifest.
-`example-output.bin` comes from ONNX Runtime, so compare `prediction.bin` with it
-numerically, not byte for byte. `evaluation.json` records the tolerance and the
-parity measured for the runtime releases the model was tested with.
+The model's `readme.md` names the reference behind `example-output.bin`, and
+`evaluation.json` records the parity measured against it, exact or within a
+tolerance, for the runtime releases the model was tested with. Compare
+`prediction.bin` with it accordingly.
 
 For a device, the runtime is supplied separately: the C runtime from
 [tigris-runtime](https://github.com/raws-labs/tigris-runtime) or the ESP-IDF
