@@ -135,12 +135,12 @@ and its cycle count.
 
 ## Step 8: Check the output against the host
 
-The runtime is designed to produce the same INT8 output on the device as on the
-host for the same plan and input. To confirm your deployment, run the same model
-and input through the host, for example the `reference` backend, or ONNX
-Runtime on the original float model, and compare the INT8 vectors. They should
-match exactly; a mismatch usually means the input fed on-device differs from the
-one you compared against.
+To confirm the deployment, run the same plan and input on the host with
+`tigris run`, which uses the portable int8 reference kernels, and compare the
+INT8 vectors. CMSIS-NN kernels can round one step apart from the reference
+kernels, so expect agreement within 1 LSB; a larger difference usually means
+the input fed on-device differs from the one you compared against. ONNX Runtime
+on the original float model shows accuracy, not the exact output.
 
 ## Adapting to other boards
 
