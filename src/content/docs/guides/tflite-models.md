@@ -91,7 +91,7 @@ indices, axes, padding or bounds need them as constants in the file.
 | `MEAN` | constant axes |
 | `SUM`, `REDUCE_MAX`, `REDUCE_MIN` | constant axes, adjacent to each other |
 | `REDUCE_ALL` | bool input; constant adjacent axes |
-| `CUMSUM` | one constant axis; int8 input zero point 0 |
+| `CUMSUM` | one constant axis |
 | `ARG_MAX`, `ARG_MIN` | int32 output that is a model output and feeds no other operator |
 
 ### Comparison, logic and selection
