@@ -70,7 +70,7 @@ indices, axes, padding or bounds need them as constants in the file.
 
 | Operator | Limits |
 |---|---|
-| `ADD`, `SUB`, `MUL`, `DIV`, `MAXIMUM`, `MINIMUM`, `SQUARED_DIFFERENCE` | dynamic operands of equal rank; constants broadcast |
+| `ADD`, `SUB`, `MUL`, `DIV`, `MAXIMUM`, `MINIMUM`, `SQUARED_DIFFERENCE` | operands broadcast from the right, as in TFLite |
 | `ABS`, `RSQRT` | |
 | `NEG`, `EXP`, `LOG`, `SQRT`, `SQUARE`, `FLOOR`, `CEIL`, `ROUND`, `SIN`, `COS`, `FLOOR_DIV`, `FLOOR_MOD` | float32 only, as in TFLite Micro |
 | `ADD_N` | int8 inputs share one quantization; refused where the int8 accumulator could overflow, from 16 inputs up |
@@ -111,7 +111,7 @@ indices, axes, padding or bounds need them as constants in the file.
 | `CONCATENATION`, `SPLIT`, `SPLIT_V`, `PACK`, `UNPACK` | int8 inputs share the output's quantization |
 | `PAD`, `PADV2`, `MIRROR_PAD` | |
 | `SLICE`, `STRIDED_SLICE` | rank 4 at most; no ellipsis, new axes or offset; no zero stride; a dropped axis needs a positive stride |
-| `GATHER`, `GATHER_ND`, `EMBEDDING_LOOKUP` | constant indices; `GATHER` without batch dimensions |
+| `GATHER`, `GATHER_ND`, `EMBEDDING_LOOKUP` | constant indices |
 | `REVERSE_V2` | adjacent axes |
 | `BROADCAST_TO`, `DYNAMIC_UPDATE_SLICE` | `DYNAMIC_UPDATE_SLICE` with constant start indices |
 | `SPACE_TO_DEPTH`, `DEPTH_TO_SPACE`, `SPACE_TO_BATCH_ND`, `BATCH_TO_SPACE_ND` | rank-4 input |
@@ -123,7 +123,9 @@ indices, axes, padding or bounds need them as constants in the file.
 Reductions, scans, `ARG_MAX`/`ARG_MIN` and the index-based data movement
 operators (`GATHER`, `GATHER_ND`, `EMBEDDING_LOOKUP`, strided slices,
 `MIRROR_PAD`, `REVERSE_V2`, `DYNAMIC_UPDATE_SLICE`) run on whole tensors, so
-their stage needs room for its input and output at once. Contiguous gathers,
+their stage needs room for its input and output at once, as does a broadcast
+that is not a simple repetition, such as `[1, 6, 6, 4]` against `[6, 1, 4]`.
+Contiguous gathers,
 stride-1 slices and the elementwise, convolution and pooling operators tile.
 `tigris analyze` reports which stages tile and how much fast memory the plan
 needs; see [When a Model Does Not Fit](/guides/model-does-not-fit/).
