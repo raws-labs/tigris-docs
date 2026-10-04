@@ -26,7 +26,8 @@ operator 12 STRIDED_SLICE: a zero stride
 
 - **Interface dtypes.** An int8 model takes int8 inputs and returns int8
   outputs, as TFLite hands them over; a float32 model stays float32. ARG_MAX
-  and ARG_MIN outputs are int32, and comparison results are bool.
+  and ARG_MIN outputs and index inputs are int32, and comparison results are
+  bool.
 - **Interface shapes.** Inputs and outputs keep TFLite's channels-last axis
   order, for example `1x96x96x3` for an image.
 - **Results.** Every operator below is checked against TFLite Micro with a
@@ -92,7 +93,7 @@ indices, axes, padding or bounds need them as constants in the file.
 | `SUM`, `REDUCE_MAX`, `REDUCE_MIN` | constant axes, adjacent to each other |
 | `REDUCE_ALL` | bool input; constant adjacent axes |
 | `CUMSUM` | one constant axis |
-| `ARG_MAX`, `ARG_MIN` | int32 output that is a model output and feeds no other operator |
+| `ARG_MAX`, `ARG_MIN` | int32 output, used as a model output or as the indices of the operators below |
 
 ### Comparison, logic and selection
 
@@ -111,9 +112,9 @@ indices, axes, padding or bounds need them as constants in the file.
 | `CONCATENATION`, `SPLIT`, `SPLIT_V`, `PACK`, `UNPACK` | int8 inputs share the output's quantization |
 | `PAD`, `PADV2`, `MIRROR_PAD` | |
 | `SLICE`, `STRIDED_SLICE` | rank 4 at most; no ellipsis, new axes or offset; no zero stride; a dropped axis needs a positive stride |
-| `GATHER`, `GATHER_ND`, `EMBEDDING_LOOKUP` | constant indices |
+| `GATHER`, `GATHER_ND`, `EMBEDDING_LOOKUP` | indices constant, or int32 from a model input or `ARG_MAX`/`ARG_MIN`; an index outside its axis stops the run with an error |
 | `REVERSE_V2` | adjacent axes |
-| `BROADCAST_TO`, `DYNAMIC_UPDATE_SLICE` | `DYNAMIC_UPDATE_SLICE` with constant start indices |
+| `BROADCAST_TO`, `DYNAMIC_UPDATE_SLICE` | start indices constant, or int32 from a model input or `ARG_MAX`/`ARG_MIN`; starts are clamped so the update fits, as in TFLite |
 | `SPACE_TO_DEPTH`, `DEPTH_TO_SPACE`, `SPACE_TO_BATCH_ND`, `BATCH_TO_SPACE_ND` | rank-4 input |
 | `RESIZE_BILINEAR`, `RESIZE_NEAREST_NEIGHBOR` | not `align_corners` and `half_pixel_centers` together |
 | `QUANTIZE`, `DEQUANTIZE` | float32 or int8 to int8, int8 to float32 |
@@ -122,15 +123,28 @@ indices, axes, padding or bounds need them as constants in the file.
 
 Reductions, scans, `ARG_MAX`/`ARG_MIN` and the index-based data movement
 operators (`GATHER`, `GATHER_ND`, `EMBEDDING_LOOKUP`, strided slices,
-`MIRROR_PAD`, `REVERSE_V2`, `DYNAMIC_UPDATE_SLICE`) run on whole tensors, so
-their stage needs room for its input and output at once, as does a broadcast
-that is not a simple repetition, such as `[1, 6, 6, 4]` against `[6, 1, 4]`.
-Contiguous gathers,
+`MIRROR_PAD`, `REVERSE_V2`, `DYNAMIC_UPDATE_SLICE`) tile in bands along an axis
+they do not reduce, index or reverse. Where no such axis exists, and for indices
+computed at run time, they run on whole tensors, so their stage needs room for
+its input and output at once. The same holds for a broadcast that is not a simple
+repetition, such as `[1, 6, 6, 4]` against `[6, 1, 4]`. Contiguous gathers,
 stride-1 slices and the elementwise, convolution and pooling operators tile.
 `tigris analyze` reports which stages tile and how much fast memory the plan
 needs; see [When a Model Does Not Fit](/guides/model-does-not-fit/).
 
+## Variables
+
+Resource variables (`VAR_HANDLE`, `READ_VARIABLE`, `ASSIGN_VARIABLE`) in float32
+models keep their values from one invocation to the next, as in TFLite Micro.
+A `CALL_ONCE` subgraph that assigns constants sets their initial values. The plan
+holds the variables in a state buffer the caller supplies next to the arenas:
+`tigris_state_required()` gives its size, `tigris_state_init()` writes the
+initial values, and `tigris_run_with_state()` runs on it. In Python,
+`Session.reset_state()` starts the variables over. A `tigris codegen`
+application allocates the buffer itself; the generated core states its size as
+`<CORE>_STATE_BYTES` and runs through `<core>_run_with_state()`.
+
 ## Not yet supported
 
-`SVDF` and `UNIDIRECTIONAL_SEQUENCE_LSTM` keep state between invocations,
-which plans do not hold yet. Models that use them are refused by name.
+`SVDF` and `UNIDIRECTIONAL_SEQUENCE_LSTM` are refused by name, as are
+control-flow subgraphs (`IF`, `WHILE`) and int8 variables.
