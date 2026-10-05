@@ -95,6 +95,13 @@ indices, axes, padding or bounds need them as constants in the file.
 | `CUMSUM` | one constant axis |
 | `ARG_MAX`, `ARG_MIN` | int32 output, used as a model output or as the indices of the operators below |
 
+### Recurrent
+
+| Operator | Limits |
+|---|---|
+| `SVDF` | a bias, which TFLite Micro requires; float32 with Relu or Relu6, or int8 with int16 state and time weights |
+| `UNIDIRECTIONAL_SEQUENCE_LSTM` | every gate; no peepholes, projection or layer normalization, which TFLite Micro does not run; tanh cell activation; float32, or int8 with a symmetric int16 cell and per-tensor weights |
+
 ### Comparison, logic and selection
 
 | Operator | Limits |
@@ -127,17 +134,21 @@ operators (`GATHER`, `GATHER_ND`, `EMBEDDING_LOOKUP`, strided slices,
 they do not reduce, index or reverse. Where no such axis exists, and for indices
 computed at run time, they run on whole tensors, so their stage needs room for
 its input and output at once. The same holds for a broadcast that is not a simple
-repetition, such as `[1, 6, 6, 4]` against `[6, 1, 4]`. Contiguous gathers,
-stride-1 slices and the elementwise, convolution and pooling operators tile.
+repetition, such as `[1, 6, 6, 4]` against `[6, 1, 4]`, and for `SVDF` and
+`UNIDIRECTIONAL_SEQUENCE_LSTM`. A `RESHAPE` tiles when each band of its input
+rows maps onto whole rows of its output. Contiguous gathers, stride-1 slices and
+the elementwise, convolution and pooling operators tile.
 `tigris analyze` reports which stages tile and how much fast memory the plan
 needs; see [When a Model Does Not Fit](/guides/model-does-not-fit/).
 
-## Variables
+## State
 
 Resource variables (`VAR_HANDLE`, `READ_VARIABLE`, `ASSIGN_VARIABLE`) in float32
 models keep their values from one invocation to the next, as in TFLite Micro.
-A `CALL_ONCE` subgraph that assigns constants sets their initial values. The plan
-holds the variables in a state buffer the caller supplies next to the arenas:
+A `CALL_ONCE` subgraph that assigns constants sets their initial values. The
+variable tensors of `SVDF` and `UNIDIRECTIONAL_SEQUENCE_LSTM` are kept the same
+way, starting at zero, or at the zero point for an int8 hidden state. The plan
+holds all of them in a state buffer the caller supplies next to the arenas:
 `tigris_state_required()` gives its size, `tigris_state_init()` writes the
 initial values, and `tigris_run_with_state()` runs on it. In Python,
 `Session.reset_state()` starts the variables over. A `tigris codegen`
@@ -146,5 +157,5 @@ application allocates the buffer itself; the generated core states its size as
 
 ## Not yet supported
 
-`SVDF` and `UNIDIRECTIONAL_SEQUENCE_LSTM` are refused by name, as are
-control-flow subgraphs (`IF`, `WHILE`) and int8 variables.
+Control-flow subgraphs (`IF`, `WHILE`) and int8 resource variables are refused
+by name.
