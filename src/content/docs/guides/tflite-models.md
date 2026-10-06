@@ -89,7 +89,7 @@ indices, axes, padding or bounds need them as constants in the file.
 
 | Operator | Limits |
 |---|---|
-| `MEAN` | constant axes |
+| `MEAN` | constant axes, adjacent to each other |
 | `SUM`, `REDUCE_MAX`, `REDUCE_MIN` | constant axes, adjacent to each other |
 | `REDUCE_ALL` | bool input; constant adjacent axes |
 | `CUMSUM` | one constant axis |
@@ -101,6 +101,13 @@ indices, axes, padding or bounds need them as constants in the file.
 |---|---|
 | `SVDF` | a bias, which TFLite Micro requires; float32 with Relu or Relu6, or int8 with int16 state and time weights |
 | `UNIDIRECTIONAL_SEQUENCE_LSTM` | every gate; no peepholes, projection or layer normalization, which TFLite Micro does not run; tanh cell activation; float32, or int8 with a symmetric int16 cell and per-tensor weights |
+
+### Control flow
+
+| Operator | Limits |
+|---|---|
+| `IF` | a one-element bool condition; float32 operands; no control flow, variables or recurrent operators inside a branch |
+| `WHILE` | float32 loop variables; a condition subgraph giving one bool; no control flow, variables or recurrent operators inside; no int32 loop counters |
 
 ### Comparison, logic and selection
 
@@ -155,7 +162,19 @@ initial values, and `tigris_run_with_state()` runs on it. In Python,
 application allocates the buffer itself; the generated core states its size as
 `<CORE>_STATE_BYTES` and runs through `<core>_run_with_state()`.
 
+## Control flow
+
+An `IF` runs the subgraph its condition selects, and a `WHILE` runs its body for
+as long as its condition subgraph gives true, as in TFLite Micro. Each subgraph is
+planned as a model of its own under the same memory budget and runs as its own
+stages; the operands are copied in and the results copied out. A `WHILE` has no
+iteration limit, as in TFLite Micro.
+
+The converter keeps the boundary of an int8 `IF` or `WHILE` in float32, which a
+plan cannot run alongside int8 operators, so control flow converts in float32
+models.
+
 ## Not yet supported
 
-Control-flow subgraphs (`IF`, `WHILE`) and int8 resource variables are refused
-by name.
+Control flow nested inside a branch or loop body, loops counting in int32, and
+int8 resource variables are refused by name.
