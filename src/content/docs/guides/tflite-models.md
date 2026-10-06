@@ -107,8 +107,8 @@ indices, axes, padding or bounds need them as constants in the file.
 
 | Operator | Limits |
 |---|---|
-| `IF` | a one-element bool condition; float32 operands; no control flow, variables or recurrent operators inside a branch |
-| `WHILE` | float32 loop variables; a condition subgraph giving one bool; no control flow, variables or recurrent operators inside; no int32 loop counters |
+| `IF` | a one-element bool condition; float32 operands; no variables or recurrent operators inside a branch |
+| `WHILE` | float32 loop variables; a condition subgraph giving one bool; no variables or recurrent operators inside; no int32 loop counters |
 
 ### Detection
 
@@ -180,7 +180,9 @@ An `IF` runs the subgraph its condition selects, and a `WHILE` runs its body for
 as long as its condition subgraph gives true, as in TFLite Micro. Each subgraph is
 planned as a model of its own under the same memory budget and runs as its own
 stages; the operands are copied in and the results copied out. A `WHILE` has no
-iteration limit, as in TFLite Micro.
+iteration limit, as in TFLite Micro. Control flow may nest inside a branch or loop
+body, up to the runtime's `TIGRIS_MAX_SUBGRAPH_DEPTH` (4 by default) operators
+deep and `TIGRIS_MAX_SUBGRAPHS` (16 by default) graphs in all.
 
 The converter keeps the boundary of an int8 `IF` or `WHILE` in float32, which a
 plan cannot run alongside int8 operators, so control flow converts in float32
@@ -188,5 +190,4 @@ models.
 
 ## Not yet supported
 
-Control flow nested inside a branch or loop body, loops counting in int32, and
-int8 resource variables are refused by name.
+Loops counting in int32 and int8 resource variables are refused by name.
