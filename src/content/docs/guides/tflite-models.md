@@ -40,17 +40,18 @@ operator 12 STRIDED_SLICE: a zero stride
 
 ## Model requirements
 
-- One subgraph. Control flow (`WHILE`, `IF`) and custom operators do not
-  convert.
+- Custom operators do not convert, except `TFLite_Detection_PostProcess`.
 - All activations int8, or all float32. Bool and int32 tensors appear only
-  where the operators below produce or take them. int16 activations and hybrid
-  models (int8 weights with float32 activations) do not convert.
+  where the operators below produce or take them, and the detection results
+  are float32 in an int8 model too. int16 activations and hybrid models (int8
+  weights with float32 activations) do not convert.
 - int8 activations quantized per tensor; weights constant, int8 weights
   symmetric, per channel or per tensor.
 - Fused activations `NONE`, `RELU` or `RELU6`.
-- Shapes fixed in the file. Operators that compute shapes at run time
-  (`SHAPE`, `FILL` and similar) do not convert; the TFLite converter folds
-  them away in models with static shapes.
+- Shapes fixed in the file. `SHAPE`, `ZEROS_LIKE`, `FILL` and
+  `BROADCAST_ARGS` convert when everything they read is fixed in the file:
+  they become constants. A `FILL` of a value computed at run time does not
+  convert.
 
 ## Supported operators
 
@@ -108,6 +109,17 @@ indices, axes, padding or bounds need them as constants in the file.
 |---|---|
 | `IF` | a one-element bool condition; float32 operands; no control flow, variables or recurrent operators inside a branch |
 | `WHILE` | float32 loop variables; a condition subgraph giving one bool; no control flow, variables or recurrent operators inside; no int32 loop counters |
+
+### Detection
+
+| Operator | Limits |
+|---|---|
+| `TFLite_Detection_PostProcess` (custom) | float32 anchors in the file; box encodings `[1, boxes, 4]`, float32 or dequantized from int8; fast or regular non-max suppression; one class per detection in the fast form; its four float32 results are model outputs no operator reads |
+
+The detections match TFLite Micro's bit for bit, including its order among
+equal scores. In the fast form, rows past the detection count are zero, where
+TFLite Micro leaves them unwritten. The operator runs untiled and holds working
+memory of about 41 bytes per box during its stage.
 
 ### Comparison, logic and selection
 
