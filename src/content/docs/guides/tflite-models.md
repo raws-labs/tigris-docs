@@ -72,7 +72,7 @@ indices, axes, padding or bounds need them as constants in the file.
 
 | Operator | Limits |
 |---|---|
-| `ADD`, `SUB`, `MUL`, `DIV`, `MAXIMUM`, `MINIMUM`, `SQUARED_DIFFERENCE` | operands broadcast from the right, as in TFLite |
+| `ADD`, `SUB`, `MUL`, `DIV`, `MAXIMUM`, `MINIMUM`, `SQUARED_DIFFERENCE` | operands broadcast from the right, as in TFLite; `ADD`, `SUB` and `MUL` also on int32, wrapping on overflow, without a fused activation |
 | `ABS`, `RSQRT` | |
 | `NEG`, `EXP`, `LOG`, `SQRT`, `SQUARE`, `FLOOR`, `CEIL`, `ROUND`, `SIN`, `COS`, `FLOOR_DIV`, `FLOOR_MOD` | float32 only, as in TFLite Micro |
 | `ADD_N` | int8 inputs share one quantization; refused where the int8 accumulator could overflow, from 16 inputs up |
@@ -107,8 +107,8 @@ indices, axes, padding or bounds need them as constants in the file.
 
 | Operator | Limits |
 |---|---|
-| `IF` | a one-element bool condition; float32 operands; no variables or recurrent operators inside a branch |
-| `WHILE` | float32 loop variables; a condition subgraph giving one bool; no variables or recurrent operators inside; no int32 loop counters |
+| `IF` | a one-element bool condition; float32 or int32 operands; no variables or recurrent operators inside a branch |
+| `WHILE` | float32 or int32 loop variables, from inputs or constants; a condition subgraph giving one bool; no variables or recurrent operators inside; a loop starting from a constant does not compress with `-c lz4` |
 
 ### Detection
 
@@ -125,10 +125,10 @@ memory of about 41 bytes per box during its stage.
 
 | Operator | Limits |
 |---|---|
-| `EQUAL`, `NOT_EQUAL`, `LESS`, `LESS_EQUAL`, `GREATER`, `GREATER_EQUAL` | bool output; int8 input scales below 1 |
+| `EQUAL`, `NOT_EQUAL`, `LESS`, `LESS_EQUAL`, `GREATER`, `GREATER_EQUAL` | bool output; int8 input scales below 1; int32 inputs |
 | `LOGICAL_AND`, `LOGICAL_OR`, `LOGICAL_NOT` | bool |
 | `SELECT_V2` | int8 values and output share one quantization |
-| `CAST` | bool to float32, or bool to int8 with scale 1 and zero point 0 |
+| `CAST` | bool to float32, or bool to int8 with scale 1 and zero point 0; int32 to float32 |
 
 ### Shape and data movement
 
@@ -190,4 +190,4 @@ models.
 
 ## Not yet supported
 
-Loops counting in int32 and int8 resource variables are refused by name.
+int8 resource variables are refused by name.
