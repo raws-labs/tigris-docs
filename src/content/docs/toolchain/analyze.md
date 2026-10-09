@@ -1,11 +1,11 @@
 ---
 title: "tigris analyze"
-description: "Use tigris analyze to check whether an ONNX model fits your target's memory constraints before you compile it."
+description: "Use tigris analyze to check whether an ONNX or TFLite model fits your target's memory constraints before you compile it."
 sidebar:
   order: 210
 ---
 
-Check if an ONNX model fits your target's memory constraints before compiling.
+Check if an ONNX or TFLite model fits your target's memory constraints before compiling.
 
 ## Usage
 
@@ -17,10 +17,11 @@ tigris analyze MODEL [OPTIONS]
 
 | Flag | Type | Required | Description |
 |------|------|----------|-------------|
-| `MODEL` | path | yes | ONNX model file (.onnx) |
+| `MODEL` | path | yes | ONNX (`.onnx`) or TFLite (`.tflite`) model file |
 | `-m`, `--mem` | size (multiple) | no | Memory pools, fast to slow (e.g. `-m 256K` or `-m 256K -m 8M`) |
 | `-f`, `--flash` | size | no | Flash budget for plan fit check (e.g. `4M`) |
 | `-v`, `--verbose` | flag | no | Show per-stage breakdown, tiling analysis, and budget sweep tables |
+| `--json` | flag | no | Emit the analysis as versioned JSON instead of panels |
 | `--input-shape` | `NAME:1x3x224x224` (multiple) | no | Shape to compile an input for. Overrides what the model declares; a dimension the model leaves free is otherwise bound to 1 |
 
 ## Size Syntax
@@ -44,7 +45,10 @@ Summary of the loaded model:
 - Operator and tensor counts
 - Peak activation memory (the minimum SRAM needed if the entire model ran in a single stage)
 - Largest tensor shape and size
-- Quantization status (INT8 QDQ or float32)
+- Dtype (int8 or float32)
+- For a single-subgraph TFLite model, the tensor arena TFLite Micro's memory planner
+  places for the same model. It covers tensors only; kernel scratch buffers and TFLite
+  Micro's persistent allocations come on top.
 
 ### SRAM Panel
 
@@ -62,10 +66,10 @@ Verdicts:
 
 ### Flash Panel
 
-Plan size estimate and flash fit check:
+Plan size and flash fit check:
 - Weight data size
 - Plan overhead (headers, section directory, tensor/op descriptors)
-- Estimated total plan size
+- Plan size, as the compiled `.tgrs` will be
 - LZ4-compressed plan size estimate (shown if compression saves >5%)
 - INT8 plan size estimate (shown for float32 models)
 - Flash fit verdict when `-f` is provided
@@ -100,3 +104,14 @@ With `-v`, additional tables are shown:
 - **Budget Comparison**: how stage counts and tiling requirements change across a range of SRAM budgets
 - **Stages**: per-stage op count, peak memory, input/output tensor counts, and warnings
 - **Tiling Analysis**: per-stage tile height, tile count, halo, receptive field, and tiled peak memory
+
+## JSON
+
+`--json` prints one object with `report: "tigris-analysis"` and a `version`, then the
+sections `model`, `tflite_micro`, `fast`, `slow`, `flash` and `stages`. Sizes are in
+bytes. Interface shapes are in the caller's axis order. A field that does not apply is
+`null`; for example `tflite_micro` is `null` for an ONNX model.
+
+```bash
+tigris analyze model.tflite -m 64K --json > analysis.json
+```
