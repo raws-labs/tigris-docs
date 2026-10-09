@@ -140,7 +140,7 @@ memory of about 41 bytes per box during its stage.
 | `SLICE`, `STRIDED_SLICE` | rank 4 at most; no ellipsis, new axes or offset; no zero stride; a dropped axis needs a positive stride |
 | `GATHER`, `GATHER_ND`, `EMBEDDING_LOOKUP` | indices constant, or int32 from a model input, `ARG_MAX`/`ARG_MIN` or int32 `ADD`/`SUB`/`MUL`; an index outside its axis stops the run with an error |
 | `REVERSE_V2` | adjacent axes |
-| `BROADCAST_TO`, `DYNAMIC_UPDATE_SLICE` | start indices constant, or int32 from a model input or `ARG_MAX`/`ARG_MIN`; starts are clamped so the update fits, as in TFLite |
+| `BROADCAST_TO`, `DYNAMIC_UPDATE_SLICE` | start indices constant, or int32 from a model input, `ARG_MAX`/`ARG_MIN` or int32 `ADD`/`SUB`/`MUL`; starts are clamped so the update fits, as in TFLite |
 | `SPACE_TO_DEPTH`, `DEPTH_TO_SPACE`, `SPACE_TO_BATCH_ND`, `BATCH_TO_SPACE_ND` | rank-4 input |
 | `RESIZE_BILINEAR`, `RESIZE_NEAREST_NEIGHBOR` | not `align_corners` and `half_pixel_centers` together |
 | `QUANTIZE`, `DEQUANTIZE` | float32 or int8 to int8, int8 to float32 |
