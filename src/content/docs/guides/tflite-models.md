@@ -184,9 +184,11 @@ iteration limit, as in TFLite Micro. Control flow may nest inside a branch or lo
 body, up to the runtime's `TIGRIS_MAX_SUBGRAPH_DEPTH` (4 by default) operators
 deep and `TIGRIS_MAX_SUBGRAPHS` (16 by default) graphs in all.
 
-The converter keeps the boundary of an int8 `IF` or `WHILE` in float32, which a
-plan cannot run alongside int8 operators, so control flow converts in float32
-models.
+In int8 models the converter keeps the boundary of an `IF` or `WHILE` in
+float32, with a `QUANTIZE` and a `DEQUANTIZE` on either side, each subgraph in its
+own encodings. The plan keeps those conversions and computes each one as TFLite
+Micro does, so the int8 results match bit for bit. The float32 boundary values
+take four bytes per element in slow memory, and the conversions run untiled.
 
 ## Not yet supported
 
