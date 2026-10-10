@@ -152,9 +152,32 @@ instances need separate workspaces. The compatibility entry point
 `tigris_run()` owns one process-global workspace and is therefore not
 re-entrant or safe for concurrent inference.
 
-After the call, `mem.fast_peak` is the measured high-water mark of the core
-fast arena since initialization. Backend workspace reserved outside that arena
-must be counted separately.
+After the call, `mem.fast_peak` and `mem.slow_peak` are the measured
+high-water marks of the core fast and slow arenas during that run. Backend
+workspace reserved outside the fast arena must be counted separately.
+
+### Plans that keep state
+
+A model with resource variables, SVDF or LSTM keeps values from one inference to
+the next. Its plan states how many bytes of state it needs; the application
+supplies that buffer next to the arenas, initializes it once, and runs through
+`tigris_run_with_state()`:
+
+```c
+size_t state_size = tigris_state_required(&plan);   /* 0 for a stateless plan */
+static uint8_t state[STATE_BYTES];                  /* at least state_size */
+if (tigris_state_init(&plan, state, sizeof(state)) != TIGRIS_EXEC_OK) {
+    /* report and stop */
+}
+
+eerr = tigris_run_with_state(&plan, &mem, tigris_dispatch_kernel_s8, NULL, &stats,
+                             workspace, workspace_size, state, sizeof(state));
+```
+
+Each run reads the values the previous run left and writes back the ones it
+assigns. Call `tigris_state_init()` again to start over. The other entry points
+refuse a stateful plan with `TIGRIS_EXEC_ERR_STATE`. A `tigris codegen` core
+states the size as `<CORE>_STATE_BYTES` and runs through `<core>_run_with_state()`.
 
 ### Executor limits and task-stack sizing
 
