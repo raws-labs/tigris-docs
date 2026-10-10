@@ -305,6 +305,59 @@ allocates nor retains the buffer. Pass the value returned by
 `tigris_executor_workspace_required()` as its minimum size. A NULL or
 undersized buffer returns `TIGRIS_EXEC_ERR_WORKSPACE`.
 
+### tigris_run_with_state
+
+```c
+tigris_exec_error_t tigris_run_with_state(
+    const tigris_plan_t *plan,
+    tigris_mem_t        *mem,
+    tigris_kernel_fn     kernel,
+    void                *user_ctx,
+    tigris_exec_stats_t *stats,
+    void                *workspace,
+    size_t               workspace_size,
+    void                *state,
+    size_t               state_size);
+```
+
+Runs a plan that keeps variables from one invocation to the next, such as
+resource variables or the state of an SVDF or LSTM. The state buffer holds every
+variable between runs: each run reads the values the last one left and writes
+back the ones it assigns. Prepare the buffer once with `tigris_state_init()`,
+which is also how it is reset. A plan without state runs here too, with `state`
+NULL and `state_size` 0. Returns `TIGRIS_EXEC_ERR_STATE` when the plan keeps
+state and the buffer is NULL or smaller than `tigris_state_required()`;
+otherwise it behaves as `tigris_run_with_workspace_buffer()`. The other entry
+points refuse a stateful plan with `TIGRIS_EXEC_ERR_STATE`.
+
+### tigris_state_required
+
+```c
+size_t tigris_state_required(const tigris_plan_t *plan);
+```
+
+Bytes of state a plan keeps across invocations; 0 for a plan without.
+
+### tigris_state_init
+
+```c
+tigris_exec_error_t tigris_state_init(const tigris_plan_t *plan, void *state, size_t state_size);
+```
+
+Writes every variable's initial value into a state buffer, which prepares it for
+the first run and resets it after any number of runs. Returns
+`TIGRIS_EXEC_ERR_STATE` when the buffer is NULL or too small.
+
+### tigris_plan_data_dtype
+
+```c
+uint8_t tigris_plan_data_dtype(const tigris_plan_t *plan);
+```
+
+The dtype a loaded plan computes in: int8 (3) when any activation is int8, else
+float32 (1). Float32 tensors in an int8 plan occur only where an operator's dtype
+signature states them, which loading checks.
+
 ### tigris_executor_workspace_size
 
 ```c
@@ -431,6 +484,37 @@ capacity. `tigris_cmsis_nn_deinit()` releases the reservation and restores the
 original fast-arena size. The adapter has one process-global prepared context,
 so preparation and dispatch are not concurrently re-entrant.
 
+## Execution trace
+
+Configure the runtime with `-DTIGRIS_TRACE=ON` to report every allocation, load,
+spill, move, kernel call and reset as it happens. Without the option the hooks
+compile to nothing.
+
+```c
+void tigris_mem_set_trace(tigris_mem_t *mem, tigris_trace_fn fn, void *ctx);
+typedef void (*tigris_trace_fn)(const tigris_trace_event_t *event, void *ctx);
+```
+
+The callback runs synchronously; the event is valid only during the call. NULL
+stops reporting. Each `tigris_trace_event_t` (`include/tigris_trace.h`) carries its
+kind, the pool, stage, tensor and operator it concerns, destination and source
+offsets, the bytes, the rows and columns of a tile, and the fast and slow memory
+in use after the event.
+
+| Kind | Reported when |
+|---|---|
+| `TIGRIS_TRACE_STAGE_BEGIN`, `TIGRIS_TRACE_STAGE_END` | A stage starts, with its execution path, and ends |
+| `TIGRIS_TRACE_TILE_BEGIN` | A tile starts, with the input rows and columns it reads, halo included |
+| `TIGRIS_TRACE_ALLOC` | A tensor gets its place in a pool |
+| `TIGRIS_TRACE_LOAD`, `TIGRIS_TRACE_SPILL` | Bytes move from slow to fast memory, or back |
+| `TIGRIS_TRACE_MOVE` | A pool compacts, or a chain keeps rows the next tile shares |
+| `TIGRIS_TRACE_OP` | A kernel is called |
+| `TIGRIS_TRACE_RESET` | Fast memory is reset to its reserved prefix |
+| `TIGRIS_TRACE_WEIGHTS` | A weight block is written to fast memory |
+| `TIGRIS_TRACE_COPY` | State or control-flow operands are copied |
+
+`tigris analyze --trace` prints these events from the host library.
+
 ## Key Types
 
 ### tigris_plan_t
@@ -509,6 +593,12 @@ derived from these plan limits:
 | `TIGRIS_MAX_STAGE_OUTPUTS` | 16 | 1-65,535 |
 | `TIGRIS_MAX_CHAIN_STAGES` | 16 | 2-65,535 |
 | `TIGRIS_MAX_SPATIAL_OPS_PER_STAGE` | 8 | 1 or greater |
+| `TIGRIS_MAX_SUBGRAPHS` | 16 | 1 or greater |
+| `TIGRIS_MAX_SUBGRAPH_DEPTH` | 4 | 1 or greater |
+
+`TIGRIS_MAX_SUBGRAPHS` counts the graphs of a plan with control flow, the main
+graph included; `TIGRIS_MAX_SUBGRAPH_DEPTH` bounds how many `If` and `While`
+operators run one inside another.
 
 All runtime translation units must use the same definitions. The loader
 returns `TIGRIS_ERR_PLAN_LIMITS` for a plan outside the selected bounds.
@@ -522,7 +612,8 @@ plan-specific integrations, use `tigris_executor_workspace_required()` and
 
 ### tigris_exec_stats_t
 
-Execution statistics populated by either executor entry point.
+Execution statistics populated by every executor entry point, on every execution
+path: normal, tiled, chained and control flow.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -534,8 +625,10 @@ Execution statistics populated by either executor entry point.
 | `slow_overflow_bytes` | `uint32_t` | Total bytes overflowed to slow |
 | `loads_bytes` | `uint32_t` | Total bytes loaded slow to fast |
 | `spills_bytes` | `uint32_t` | Total bytes spilled fast to slow |
-| `compactions` | `uint32_t` | Number of fast-pool compactions |
+| `compactions` | `uint32_t` | Number of fast- and slow-pool compactions |
 | `slow_peak` | `uint32_t` | High-water mark for slow_used |
+| `weight_bytes` | `uint32_t` | Uncompressed weight bytes written to fast memory |
+| `copy_bytes` | `uint32_t` | State and control-flow bytes copied |
 
 ## Error Enums
 
@@ -555,6 +648,7 @@ Execution statistics populated by either executor entry point.
 | -9 | `TIGRIS_ERR_PLAN_LIMITS` | Plan exceeds compiled executor limits |
 | -10 | `TIGRIS_ERR_BAD_TENSOR` | Tensor metadata is not executable |
 | -11 | `TIGRIS_ERR_BAD_OPERATOR` | Operator contract is not executable |
+| -12 | `TIGRIS_ERR_BAD_INTERFACE` | Declared model interface is not convertible |
 
 ### tigris_mem_error_t (Memory)
 
@@ -577,6 +671,7 @@ Execution statistics populated by either executor entry point.
 | -4 | `TIGRIS_EXEC_ERR_NO_STAGES` | Plan has no stages |
 | -5 | `TIGRIS_EXEC_ERR_TILE` | Tiled execution error |
 | -6 | `TIGRIS_EXEC_ERR_WORKSPACE` | Executor workspace unavailable or NULL |
+| -7 | `TIGRIS_EXEC_ERR_STATE` | Plan keeps state and no state buffer, or too small a one, was given |
 
 ## Op Types
 
