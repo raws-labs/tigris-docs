@@ -115,5 +115,37 @@ uint64_t tigris_host_metric(const tigris_host_t *host, uint32_t metric);
 | `TIGRIS_HOST_FAST_PEAK` | Fast arena peak of the last run |
 | `TIGRIS_HOST_SLOW_PEAK` | Slow arena peak of the last run |
 | `TIGRIS_HOST_WORKSPACE_BYTES` | Executor workspace size |
+| `TIGRIS_HOST_LOAD_BYTES` | Bytes loaded from slow to fast memory in the last run |
+| `TIGRIS_HOST_SPILL_BYTES` | Bytes spilled from fast to slow memory in the last run |
+| `TIGRIS_HOST_WEIGHT_BYTES` | Weight bytes written to fast memory in the last run |
+| `TIGRIS_HOST_COPY_BYTES` | State and control-flow bytes copied in the last run |
+| `TIGRIS_HOST_COMPACTIONS` | Fast- and slow-pool compactions in the last run |
+| `TIGRIS_HOST_TILES` | Tiles executed in the last run |
+| `TIGRIS_HOST_TENSOR_ALIGN` | Tensor alignment of this build, in bytes |
 
 The peaks cover the execution arenas, not the process memory.
+
+### State
+
+```c
+const char *tigris_host_reset_state(tigris_host_t *host);
+```
+
+A session keeps a stateful plan's variables from one run to the next. This
+returns every variable to its initial value. A stateless plan has nothing to
+reset.
+
+### Trace
+
+```c
+void     tigris_host_trace_buffer(tigris_host_t *host, void *events, uint32_t capacity);
+uint32_t tigris_host_trace_count (const tigris_host_t *host);
+```
+
+`tigris_host_trace_buffer` records the next runs' execution events into a
+caller-owned array of `capacity` `tigris_trace_event_t` records
+(`include/tigris_trace.h`, see [Execution trace](/runtime/api-reference/#execution-trace));
+NULL or a zero capacity stops recording. A run never writes past `capacity`, and
+`tigris_host_trace_count` reports how many events the last run emitted, so a count
+above the capacity means the array was too small. The host library is built with
+tracing on; `tigris analyze --trace` reads these events.
