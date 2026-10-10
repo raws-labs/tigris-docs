@@ -20,8 +20,9 @@ tigris analyze MODEL [OPTIONS]
 | `MODEL` | path | yes | ONNX (`.onnx`) or TFLite (`.tflite`) model file |
 | `-m`, `--mem` | size (multiple) | no | Memory pools, fast to slow (e.g. `-m 256K` or `-m 256K -m 8M`) |
 | `-f`, `--flash` | size | no | Flash budget for plan fit check (e.g. `4M`) |
-| `-v`, `--verbose` | flag | no | Show per-stage breakdown, tiling analysis, and budget sweep tables |
-| `--json` | flag | no | Emit the analysis as versioned JSON instead of panels |
+| `-v`, `--verbose` | flag | no | Add the per-stage table |
+| `--json` | flag | no | Emit the analysis as versioned JSON |
+| `--trace` | flag | no | Print the step-by-step execution trace instead of the summary |
 | `--input-shape` | `NAME:1x3x224x224` (multiple) | no | Shape to compile an input for. Overrides what the model declares; a dimension the model leaves free is otherwise bound to 1 |
 
 ## Size Syntax
@@ -37,42 +38,70 @@ All size arguments accept the following formats (case-insensitive):
 
 ## Output
 
-When run with a memory budget (`-m`), the analysis produces three panels:
+```bash
+tigris analyze mobilenet_v1_matched.onnx -m 64K -m 8M -f 16M
+```
 
-### Model Panel
+```text
+mobilenet_v1_matched.onnx   int8, 31 operators
+  input    input    1x3x128x128 float32, stored as int8 at scale 0.0392704, zero point -1
+  output   l33_dq   1x10 float32, stored as int8 at scale 0.00390625, zero point -128
+fits 64.00 KiB fast memory, 13 stages, 12 tiled
 
-Summary of the loaded model:
-- Operator and tensor counts
-- Peak activation memory (the minimum SRAM needed if the entire model ran in a single stage)
-- Largest tensor shape and size
-- Dtype (int8 or float32)
-- For a single-subgraph TFLite model, the tensor arena TFLite Micro's memory planner
-  places for the same model. It covers tensors only; kernel scratch buffers and TFLite
-  Micro's persistent allocations come on top.
+memory
+  unscheduled       384.00 KiB
+  largest tensor    256.00 KiB   1x64x64x64
+  this plan          64.00 KiB   0 B headroom
+  slow memory       192.00 KiB   budget 8.00 MiB
+  also fits at       32.00 KiB   25 stages, 24 tiled
+  also fits at       16.00 KiB   29 stages, 28 tiled
+  does not fit at     8.00 KiB
 
-### SRAM Panel
+flash
+  plan            3.35 MiB   weights 3.09 MiB, overhead 269.93 KiB
+  flash budget   16.00 MiB   fits
+```
 
-Memory feasibility analysis against the fast-memory budget:
-- Budget and stage count
-- Spill/reload I/O between stages (bytes transferred between fast and slow memory)
-- Tiling breakdown: how many stages need spatial tiling, how many are tileable vs untileable
-- Verdict: **PASS** (fits, or resolved by tiling) or **FAIL** (untileable stages remain or slow memory overflow)
+The first block names the model, its inputs and outputs in the caller's axis order,
+and the verdict. The verdict is one of:
 
-Verdicts:
-- **ok**: all stages fit within the SRAM budget
-- **partitioned**: temporal partitioning splits the graph into stages, no tiling needed
-- **tiled**: spatial tiling resolves all oversized stages
-- **needs_work**: some stages cannot be tiled and exceed the budget
+- `fits <budget> fast memory, N stages, K tiled`: a plan can be compiled. A stage
+  counts as tiled when it runs in tiles or as part of a chain.
+- `does not fit <budget> fast memory: N stages exceed it`, followed by one line per
+  stage with the fast memory it needs and why it cannot shrink, largest first.
+- `cannot compile: N unsupported operators`, followed by the operators.
+- `fits <budget> fast memory; slow memory X needed, Y given`.
+- `no budget given; memory figures only`, when `-m` is absent.
 
-### Flash Panel
+`memory` rows:
 
-Plan size and flash fit check:
-- Weight data size
-- Plan overhead (headers, section directory, tensor/op descriptors)
-- Plan size, as the compiled `.tgrs` will be
-- LZ4-compressed plan size estimate (shown if compression saves >5%)
-- INT8 plan size estimate (shown for float32 models)
-- Flash fit verdict when `-f` is provided
+- `TFLite Micro tensors`, for a single-subgraph TFLite model: the tensor arena TFLite
+  Micro's memory planner places for the same model. Kernel scratch and TFLite Micro's
+  persistent allocations come on top.
+- `unscheduled`: the activation peak if the whole model ran as one stage.
+- `largest tensor`: the largest activation and its shape.
+- `this plan`: the fast memory the plan uses, and the headroom left in the budget.
+- `slow memory`: what the tensors that cross stage boundaries need in the slow pool.
+- `also fits at`, `fits at`, `does not fit at`: up to three more budgets, halving from
+  a budget that fits or doubling from one that does not. Each is a full compile run.
+
+`flash` rows: the plan size as `compile` writes it, split into weights and overhead;
+`with -c lz4` and `as int8` estimates where they apply; and the flash verdict when `-f`
+is given.
+
+With `-v`, a `stages` table follows, one row per stage: its operators, its peak
+before tiling, its input and output tensor counts, and how it tiles.
+
+## Execution trace
+
+`--trace` prints the schedule step by step instead of the summary: per stage, the
+tensors it reloads from slow memory, each operator with its input and output shapes
+and the live fast memory after it, and the tensors it spills. It does not run
+inference.
+
+```bash
+tigris analyze mobilenet_v1_matched.onnx -m 64K -m 8M --trace
+```
 
 ## Examples
 
@@ -94,21 +123,16 @@ Two-pool memory (SRAM + PSRAM):
 tigris analyze yolov5n.onnx -m 232K -m 6M -f 4M
 ```
 
-Verbose output with per-stage and tiling tables:
+Verbose output with the per-stage table:
 
 ```bash
 tigris analyze ds_cnn.onnx -m 64K -v
 ```
 
-With `-v`, additional tables are shown:
-- **Budget Comparison**: how stage counts and tiling requirements change across a range of SRAM budgets
-- **Stages**: per-stage op count, peak memory, input/output tensor counts, and warnings
-- **Tiling Analysis**: per-stage tile height, tile count, halo, receptive field, and tiled peak memory
-
 ## JSON
 
 `--json` prints one object with `report: "tigris-analysis"` and a `version`, then the
-sections `model`, `tflite_micro`, `fast`, `slow`, `flash` and `stages`. Sizes are in
+sections `model`, `tflite_micro`, `fast`, `slow`, `flash`, `budgets_tried` and `stages`. Sizes are in
 bytes. Interface shapes are in the caller's axis order. A field that does not apply is
 `null`; for example `tflite_micro` is `null` for an ONNX model.
 

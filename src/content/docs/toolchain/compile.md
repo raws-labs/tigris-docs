@@ -5,7 +5,10 @@ sidebar:
   order: 220
 ---
 
-Compile an ONNX model into a binary `.tgrs` execution plan for deployment on embedded devices.
+Compile an ONNX or TFLite model into a binary `.tgrs` execution plan for deployment on
+embedded devices. `compile` prints the same summary as
+[`tigris analyze`](/toolchain/analyze/), then writes the plan only if the model fits
+every budget given.
 
 ## Usage
 
@@ -17,10 +20,10 @@ tigris compile MODEL [OPTIONS]
 
 | Flag | Type | Required | Description |
 |------|------|----------|-------------|
-| `MODEL` | path | yes | ONNX model file (.onnx) |
+| `MODEL` | path | yes | ONNX (`.onnx`) or TFLite (`.tflite`) model file |
 | `-m`, `--mem` | size (multiple) | yes | Memory pools, fast to slow (e.g. `-m 256K` or `-m 256K -m 8M`) |
 | `-o`, `--output` | path | no | Output .tgrs path (default: `MODEL.tgrs`) |
-| `-f`, `--flash` | size | no | Flash budget. Warns if plan exceeds this size. |
+| `-f`, `--flash` | size | no | Flash budget. No plan is written if the plan exceeds it. |
 | `-c`, `--compress` | `none` / `lz4` | no | Weight compression (default: `none`) |
 | `--xip` | flag | no | Execute-in-place: weights read directly from flash at runtime |
 | `--input-shape` | `NAME:1x3x224x224` (multiple) | no | Shape to compile an input for. Overrides what the model declares; a dimension the model leaves free is otherwise bound to 1 |
@@ -65,25 +68,40 @@ Compile with a 256K SRAM budget:
 tigris compile ds_cnn.onnx -m 256K -o ds_cnn.tgrs
 ```
 
-Output:
-```
-Binary plan written to ds_cnn.tgrs
-  28 ops, 3 stages @ 256.00 KiB budget
-  plan size: 87.42 KiB
+```text
+ds_cnn.onnx   float32, 12 operators
+  input    input    1x1x49x10 float32
+  output   output   1x12 float32
+fits 256.00 KiB fast memory, 1 stage
+
+memory
+  unscheduled      62.50 KiB
+  largest tensor   31.25 KiB   1x64x25x5
+  this plan        62.50 KiB   193.50 KiB headroom
+  slow memory       2.00 KiB
+
+flash
+  plan      89.94 KiB   weights 88.30 KiB, overhead 1.64 KiB
+  as int8   23.71 KiB   estimate
+
+wrote ds_cnn.tgrs   89.94 KiB
 ```
 
-Compile with LZ4 compression and flash budget check:
+Compile with LZ4 compression and a flash budget check. The last line says how much of
+the fast memory the decompressed weights take:
 
 ```bash
-tigris compile mobilenetv2.onnx -m 256K -c lz4 -f 4M -o mobilenetv2.tgrs
+tigris compile ds_cnn.onnx -m 128K -c lz4 -f 4M -o ds_cnn.tgrs
 ```
 
-Output:
+```text
+wrote ds_cnn.tgrs   88.73 KiB, LZ4, 66.50 KiB of the 128.00 KiB fast memory holds decompressed weights
 ```
-Binary plan written to mobilenetv2.tgrs (LZ4 compressed)
-  53 ops, 12 stages @ 256.00 KiB budget
-  plan size: 2.85 MiB (uncompressed: 3.41 MiB, ratio: 0.84x)
-  flash 4.00 MiB: fits
+
+When the decompressed weights do not fit the budget, no plan is written:
+
+```text
+Error: no plan written: decompressed weights need 88.31 KiB of fast memory, the budget is 64.00 KiB
 ```
 
 Two-pool memory (SRAM + PSRAM):

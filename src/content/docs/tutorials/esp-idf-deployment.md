@@ -25,7 +25,7 @@ runtime executes it.
 ## Run the bundled example
 
 The `getting-started` example runs a real 256x256 INT8 U-Net. Its largest
-activation is about 1.19 MiB and its naive peak is about 2.38 MiB, which makes an
+activation is about 1.19 MiB and its unscheduled peak is about 2.38 MiB, which makes an
 arena-based runtime such as TFLite Micro run out of memory. TiGrIS 2D-tiles the
 model into a **232 KiB** fast arena and spills the skip tensors to PSRAM. The
 plan and a golden output are embedded in the app, so there is nothing to flash
