@@ -50,6 +50,7 @@ memory
   largest tensor    256.00 KiB   1x64x64x64
   this plan          64.00 KiB   0 B headroom
   slow memory       192.00 KiB   budget 8.00 MiB
+  slow traffic      767.38 KiB   per inference: 208.01 KiB written, 559.38 KiB read
   also fits at       32.00 KiB   25 stages, 24 tiled
   also fits at       16.00 KiB   29 stages, 28 tiled
   does not fit at     8.00 KiB

@@ -54,6 +54,7 @@ memory
   largest tensor    256.00 KiB   1x64x64x64
   this plan          64.00 KiB   0 B headroom
   slow memory       192.00 KiB   budget 8.00 MiB
+  slow traffic      767.38 KiB   per inference: 208.01 KiB written, 559.38 KiB read
   also fits at       32.00 KiB   25 stages, 24 tiled
   also fits at       16.00 KiB   29 stages, 28 tiled
   does not fit at     8.00 KiB
@@ -83,6 +84,9 @@ and the verdict. The verdict is one of:
 - `largest tensor`: the largest activation and its shape.
 - `this plan`: the fast memory the plan uses, and the headroom left in the budget.
 - `slow memory`: what the tensors that cross stage boundaries need in the slow pool.
+- `slow traffic`: bytes written to and read from slow memory in one inference,
+  measured by running the plan once on the host runtime. `--trace` shows where they
+  come from. Without the host runtime the row reads `not measured` with the reason.
 - `also fits at`, `fits at`, `does not fit at`: up to three more budgets, halving from
   a budget that fits or doubling from one that does not. Each is a full compile run.
 
@@ -170,7 +174,8 @@ tigris analyze ds_cnn.onnx -m 64K -v
 `--json` prints one object with `report: "tigris-analysis"` and a `version`, then the
 sections `model`, `tflite_micro`, `fast`, `slow`, `flash`, `budgets_tried` and `stages`. Sizes are in
 bytes. Interface shapes are in the caller's axis order. A field that does not apply is
-`null`; for example `tflite_micro` is `null` for an ONNX model.
+`null`; for example `tflite_micro` is `null` for an ONNX model. `slow.traffic` holds the
+measured `written` and `read` bytes, or `null` when they were not measured.
 
 ```bash
 tigris analyze model.tflite -m 64K --json > analysis.json
