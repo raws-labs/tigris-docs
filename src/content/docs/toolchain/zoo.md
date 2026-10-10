@@ -27,7 +27,7 @@ resources stay unconstrained.
 |------|-------------|
 | `--model` | Model name (`fetch` takes it as the first argument) |
 | `--category` | Task category, e.g. `time-series-forecasting` |
-| `--runtime` | A runtime release the build must be compatible with, e.g. `0.10.0` |
+| `--runtime` | A runtime release the build must be compatible with, e.g. `0.11.4` |
 | `--backend` | Kernel backend, e.g. `reference` |
 | `--quantization`, `--quant` | Weight and activation precision, e.g. `float32` |
 | `-m`, `--mem` | Maximum fast arena; repeat for the slow arena |
@@ -43,7 +43,33 @@ flash. The newest published build that matches wins.
 | `--json` | Print the matching catalog entries as JSON |
 | `-v`, `--verbose` | Show artifact IDs, runtime compatibility and publication details |
 
-Without `--verbose` it prints a table of model, category, precision and memory.
+Without `--verbose` it prints a table of model, category, precision and memory:
+
+```bash
+tigris zoo list
+```
+
+```text
+model                category               precision    fast RAM    slow RAM         plan
+vww-mobilenetv1      Person detection       int8        64.00 KiB   27.03 KiB   283.56 KiB
+vww-mobilenetv1      Person detection       int8        10.00 KiB   45.00 KiB   283.97 KiB
+resnet8              Image classification   int8        48.00 KiB    3.03 KiB    87.56 KiB
+har-cnn1d            Activity recognition   int8         4.00 KiB       800 B    38.00 KiB
+kws-ds-cnn           Keyword spotting       int8        16.00 KiB       544 B    39.64 KiB
+electricity-hourly   Forecasting            float32      1.00 KiB       768 B    16.19 KiB
+```
+
+With `-v`, each build gets its artifact ID, runtime range, tested runtime releases,
+plan schema, backends and publication date:
+
+```text
+resnet8-s8-s9-48k-3b7f5d5e956844e0   resnet8, Image classification, int8
+  runtime     >= 0.11.1, no known upper bound
+  tested      0.11.3, 0.11.4
+  schema      9, backends reference
+  memory      fast 48.00 KiB, slow 3.03 KiB, plan 87.56 KiB
+  published   2026-09-28T06:44:18.327025Z
+```
 
 ## `tigris zoo fetch`
 

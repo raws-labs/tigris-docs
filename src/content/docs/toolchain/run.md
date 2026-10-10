@@ -18,12 +18,15 @@ tigris run MODEL --input FILE --output FILE [OPTIONS]
 
 ## Options
 
-| Flag | Type | Required | Description |
-|------|------|----------|-------------|
-| `MODEL` | path | yes | Compiled `.tgrs` plan |
-| `--input` | `FILE` or `NAME=FILE` (multiple) | yes | Input tensor as `.bin` or `.npy`; name each file with `NAME=FILE` when the model has several inputs |
-| `--output` | path | yes | `.bin` or `.npy` for one output tensor, `.npz` for named outputs; the file must not exist |
-| `--json` | flag | no | Print execution metadata as JSON |
+| Flag | Type | Description |
+|------|------|-------------|
+| `MODEL` | path | Compiled `.tgrs` plan |
+| `--input` | `FILE` or `NAME=FILE`, repeatable, required | Input tensor as `.bin` or `.npy`; name each file with `NAME=FILE` when the model has several inputs |
+| `--output` | path, required | `.bin` or `.npy` for one output tensor, `.npz` for named outputs; the file must not exist |
+| `--json` | flag | Execution metadata as JSON |
+
+`run` takes a compiled plan, not a model: compile an ONNX or TFLite file with
+[`tigris compile`](/toolchain/compile/) first.
 
 ## Inputs and outputs
 
@@ -45,7 +48,7 @@ tigris run downloaded-model/model.tgrs \
 ```
 
 ```text
-model.tgrs   runtime 0.11.4, bundled, host reference backend
+model.tgrs   runtime 0.12.0, bundled, host reference backend
   fast arena peak   768 B   measured; plan and workspace excluded
   slow arena peak   768 B
 
@@ -81,7 +84,7 @@ tigris run model.tgrs --input input.bin --output prediction.bin --json
 
 ```json
 {
-  "runtime_version": "0.11.4",
+  "runtime_version": "0.12.0",
   "runtime_source": "bundled",
   "backend": "reference",
   "output": "prediction.bin",
@@ -90,7 +93,7 @@ tigris run model.tgrs --input input.bin --output prediction.bin --json
     "slow_capacity_bytes": 1664,
     "fast_peak_bytes": 768,
     "slow_peak_bytes": 768,
-    "executor_workspace_bytes": 51
+    "executor_workspace_bytes": 91
   },
   "tensors": [
     {"name": "output", "dtype": "float32", "shape": [1, 24]}

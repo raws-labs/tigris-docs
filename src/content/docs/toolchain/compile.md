@@ -1,94 +1,111 @@
 ---
 title: "tigris compile"
-description: "Use tigris compile to turn an ONNX model into a binary .tgrs execution plan for deployment on embedded devices."
+description: "Use tigris compile to turn an ONNX or TFLite model into a binary .tgrs execution plan for a memory budget, with optional flash check, weight compression and execute-in-place."
 sidebar:
   order: 220
 ---
 
-Compile an ONNX or TFLite model into a binary `.tgrs` execution plan for deployment on
-embedded devices. `compile` prints the same summary as
-[`tigris analyze`](/toolchain/analyze/), then writes the plan only if the model fits
-every budget given.
+Compile an ONNX or TFLite model into a `.tgrs` execution plan for a memory budget.
+`compile` prints the same report as [`tigris analyze`](/toolchain/analyze/), then
+writes the plan only if the model fits every budget given.
 
 ## Usage
 
 ```bash
-tigris compile MODEL [OPTIONS]
+tigris compile MODEL -m FAST [-m SLOW] [-f FLASH] [-c lz4] [--xip] [-o PLAN]
 ```
 
 ## Options
 
-| Flag | Type | Required | Description |
-|------|------|----------|-------------|
-| `MODEL` | path | yes | ONNX (`.onnx`) or TFLite (`.tflite`) model file |
-| `-m`, `--mem` | size (multiple) | yes | Memory pools, fast to slow (e.g. `-m 256K` or `-m 256K -m 8M`) |
-| `-o`, `--output` | path | no | Output .tgrs path (default: `MODEL.tgrs`) |
-| `-f`, `--flash` | size | no | Flash budget. No plan is written if the plan exceeds it. |
-| `-c`, `--compress` | `none` / `lz4` | no | Weight compression (default: `none`) |
-| `--xip` | flag | no | Execute-in-place: weights read directly from flash at runtime |
-| `--input-shape` | `NAME:1x3x224x224` (multiple) | no | Shape to compile an input for. Overrides what the model declares; a dimension the model leaves free is otherwise bound to 1 |
+| Flag | Type | Description |
+|------|------|-------------|
+| `MODEL` | path | ONNX or TFLite model |
+| `-m`, `--mem` | size, repeatable, required | Fast memory, then slow memory: `-m 32K -m 1M` or `-m 32K+1M` |
+| `-o`, `--output` | path | Plan to write; defaults to `MODEL.tgrs` |
+| `-f`, `--flash` | size | Flash for the plan; no plan is written when it is larger |
+| `-c`, `--compress` | `none`, `lz4` | Compress weights per stage (default `none`) |
+| `--xip` | flag | Read weights in place from flash at run time instead of copying them to RAM |
+| `--input-shape` | `NAME:1x3x224x224`, repeatable | Shape for an input the model leaves open; an open dimension is otherwise bound to 1 |
 
-## Compilation Pipeline
+Sizes and the two memory pools are explained in the
+[CLI overview](/toolchain/overview/#memory-budgets).
 
-The compiler runs a 7-stage pipeline:
-
-1. **Load.** Import the ONNX model, fold constants, canonicalize the graph.
-2. **Normalize.** Fold QDQ patterns, extract quantization parameters, lower ops to TiGrIS op types.
-3. **Lifetimes.** Compute tensor lifetimes from the execution order.
-4. **Memory Timeline.** Build the activation memory timeline, compute peak memory.
-5. **Temporal Partition.** Split the graph into stages that each fit within the SRAM budget, inserting spill/reload ops at stage boundaries.
-6. **Spatial Partition.** For stages that still exceed the budget, compute spatial tiling plans (tile height, halo, receptive field) and detect chain-tileable stage sequences.
-7. **Binary Emit.** Serialize to the `.tgrs` binary format.
-
-The output is a single `.tgrs` file designed for zero-copy, zero-alloc loading on the target device.
-
-## XIP (Execute In Place)
-
-When `--xip` is enabled on an uncompressed plan, the runtime reads weights directly from flash via memory-mapped I/O instead of copying the full weight blob to RAM. The plan binary format is designed for memory-mapped access, so the C loader returns pointers directly into the mapped buffer. If weight compression is also enabled, weights are still stored compactly in flash but each stage's compressed block is decompressed into the fast arena before execution.
-
-## Weight Compression
-
-LZ4 compression reduces plan size on flash at the cost of a small SRAM overhead for decompression at runtime.
+## Output
 
 ```bash
-tigris compile model.onnx -m 256K -c lz4 -o model.tgrs
-```
-
-When compression is enabled:
-- Weights are compressed per stage into individual blocks
-- At runtime, the executor decompresses one stage's weights at a time into a reserved prefix of the SRAM arena
-- Size the complete core fast arena with `tigris_fast_arena_required(&plan)`; it includes the simultaneous decompression reservation without duplicating the runtime's arithmetic
-- The plan reports both compressed and uncompressed sizes
-
-## Examples
-
-Compile with a 256K SRAM budget:
-
-```bash
-tigris compile ds_cnn.onnx -m 256K -o ds_cnn.tgrs
+tigris compile vww_96_int8.tflite -m 32K -m 1M -o vww.tgrs
 ```
 
 ```text
-ds_cnn.onnx   float32, 12 operators
-  input    input    1x1x49x10 float32
-  output   output   1x12 float32
-fits 256.00 KiB fast memory, 1 stage
+vww_96_int8.tflite   int8, 31 operators
+  input    input_1_int8    1x96x96x3 int8
+  output   Identity_int8   1x2 int8
+fits 32.00 KiB fast memory, 8 stages, 7 tiled
 
 memory
-  unscheduled      62.50 KiB
-  largest tensor   31.25 KiB   1x64x25x5
-  this plan        62.50 KiB   193.50 KiB headroom
-  slow memory       2.00 KiB
+  TFLite Micro tensors   72.00 KiB   its planner; kernel scratch excluded
+  unscheduled            54.00 KiB
+  largest tensor         36.00 KiB   1x48x48x16
+  this plan              29.34 KiB   2.66 KiB headroom
+  slow memory            45.00 KiB   budget 1.00 MiB
 
 flash
-  plan      89.94 KiB   weights 88.30 KiB, overhead 1.64 KiB
-  as int8   23.71 KiB   estimate
+  plan          297.25 KiB   weights 213.93 KiB, overhead 83.32 KiB
+  with -c lz4   137.00 KiB   estimate
 
-wrote ds_cnn.tgrs   89.94 KiB
+wrote vww.tgrs   297.25 KiB
 ```
 
-Compile with LZ4 compression and a flash budget check. The last line says how much of
-the fast memory the decompressed weights take:
+The report is `analyze`'s without the rows that need extra work: no other budgets
+are tried and the slow traffic is not measured. Use `analyze` for those, and
+[`inspect`](/toolchain/inspect/) to read the plan back.
+
+## When no plan is written
+
+`compile` exits with status 1 and leaves no file behind when a budget is not met.
+The verdict line says which one:
+
+```text
+does not fit 1.00 KiB fast memory: 8 stages exceed it
+```
+
+```text
+fits 32.00 KiB fast memory, 8 stages, 7 tiled; slow memory 45.00 KiB needed, 16.00 KiB given
+```
+
+Each ends with `Error: no plan written`. Two more checks come after the schedule:
+
+```text
+Error: no plan written: the plan is 3.36 MiB, the flash budget is 1.00 MiB
+Error: no plan written: decompressed weights need 88.31 KiB of fast memory, the budget is 64.00 KiB
+```
+
+[When a Model Does Not Fit](/guides/model-does-not-fit/) covers what to change.
+
+## What a plan holds
+
+A `.tgrs` file holds the operator schedule, the stages and how each one tiles, the
+tensor shapes and quantization, the memory the plan needs, and the weights. It is
+data, not code: the runtime reads it in place and executes it in the fast and
+slow buffers the application supplies, without a general-purpose allocator. The
+same plan runs on every kernel backend; [`codegen`](/toolchain/codegen/) picks one.
+[Compilation Pipeline](/architecture/pipeline/) describes how the compiler gets
+there.
+
+## Execute in place
+
+With `--xip`, the runtime reads an uncompressed plan's weights directly from
+memory-mapped flash instead of copying them to RAM, so RAM holds only activations
+and scratch. Flash reads are slower than SRAM reads; how much that costs depends
+on the device's flash cache and the model's access pattern. `--xip` does not
+change the schedule or the plan's size.
+
+## Weight compression
+
+`-c lz4` compresses each stage's weights into its own block. At run time the
+executor decompresses one stage's block at a time into a reserved part of the
+fast arena, so the largest block has to fit there next to the stage's
+activations. The last line says how much of the fast memory that takes:
 
 ```bash
 tigris compile ds_cnn.onnx -m 128K -c lz4 -f 4M -o ds_cnn.tgrs
@@ -98,14 +115,27 @@ tigris compile ds_cnn.onnx -m 128K -c lz4 -f 4M -o ds_cnn.tgrs
 wrote ds_cnn.tgrs   88.73 KiB, LZ4, 66.50 KiB of the 128.00 KiB fast memory holds decompressed weights
 ```
 
-When the decompressed weights do not fit the budget, no plan is written:
+Size the application's fast arena with `tigris_fast_arena_required(&plan)`,
+which includes that reservation. Compression pays when weights compress well and
+each stage's weights are small; on a model with large stages the reservation
+outgrows the budget and no plan is written.
 
-```text
-Error: no plan written: decompressed weights need 88.31 KiB of fast memory, the budget is 64.00 KiB
-```
+## Examples
 
-Two-pool memory (SRAM + PSRAM):
+On-chip SRAM next to external PSRAM, weights read in place from a 4 MiB flash:
 
 ```bash
-tigris compile yolov5n.onnx -m 232K -m 6M -o yolov5n.tgrs
+tigris compile model.tflite -m 232K -m 6M -f 4M --xip -o model.tgrs
+```
+
+A single fast pool, for a model that fits in one stage:
+
+```bash
+tigris compile ds_cnn.onnx -m 256K -o ds_cnn.tgrs
+```
+
+A stock ONNX export with a free batch dimension, at batch 4:
+
+```bash
+tigris compile model.onnx -m 256K --input-shape input:4x3x224x224
 ```

@@ -80,22 +80,26 @@ Chain tiling gives the lowest spill overhead. For deep networks where many stage
 
 ## Op tileability
 
-The compiler classifies every op to determine whether a stage can be tiled.
+A stage tiles when every operator in it supports the same way of cutting its
+tensors. Operators the compiler has not audited for a tiling contract run whole,
+so their stage needs its inputs and outputs in fast memory at once.
 
-| Category | Operators | Tileable | Notes |
-|---|---|---|---|
-| Spatial | Conv, DepthwiseConv, MaxPool, AvgPool, GlobalAveragePool | Yes | Contribute to receptive field and halo |
-| Pointwise | Add, Sub, Mul, Relu, Relu6, Sigmoid, HardSwish | Yes | No spatial extent, tile passthrough |
-| Channel-wise | Concat, BatchNorm | Yes | Operate along channel axis only |
-| Resample | Resize, Pad | Yes | Scale factors adjust tile geometry |
-| Structural | Flatten, Reshape, Transpose | No | Require full spatial extent |
-| Dense | Gemm, MatMul, Softmax | No | Operate on entire flattened vector |
+| How it tiles | Operators | Notes |
+|---|---|---|
+| Height, or height and width, with a halo | Conv, Conv1D, DepthwiseConv, ConvTranspose, MaxPool, AveragePool, L2Pool | Contribute to the receptive field; a wide layer tiles in both height and width |
+| With the tile, no halo | Add, Sub, Mul, Div, Max, Min, activations (Relu, Relu6, Sigmoid, Tanh, HardSwish, LeakyRelu, PRelu, Elu), elementwise math (Exp, Log, Sqrt, Abs, Floor and the rest), comparisons, logic, Where, Cast, Concat along the channel axis | Shape-preserving |
+| With the tile, whole rows | Softmax, LogSoftmax, L2Normalization, LayerNormalization | They normalize along the last stored axis, which no tile cuts |
+| Height bands of the output | Resize | On its own stage; the source band is found by dividing |
+| Bands of input rows, accumulated | GlobalAveragePool | One partial sum per channel is carried between bands |
+| Bands of matrix rows | Gemm, MatMul, Reshape, Flatten, with elementwise operators | The second operand of a matrix product is read whole |
+| Bands along an independent axis | ReduceMean, ReduceMax, ReduceMin, ReduceSum, ReduceAll, CumSum, ArgMax, ArgMin, Gather, GatherND, EmbeddingLookup, StridedSlice, Pad, MirrorPad, ReverseV2, DynamicUpdateSlice, Split, Concat, Transpose, broadcasting binary operators | Along an axis the operator does not reduce, index, reverse or move; none for indices computed at run time |
+| Bands of a reshape | Reshape | When each band of input rows maps onto whole output rows |
+| Whole | TFLite_Detection_PostProcess, SVDF and LSTM beyond their batch axis | The stage needs its inputs and outputs at once |
 
-A stage is tileable if:
-- It contains **zero** untileable ops.
-- It contains **at most one** spatial op (Conv, DepthwiseConv, Pool).
+If and While hold nothing in fast memory themselves: each subgraph is planned and
+tiled as a model of its own under the same budget.
 
-Stages with multiple spatial ops (e.g., a backbone block with Conv + MaxPool) fall back to normal execution with slow-memory overflow if they exceed the budget.
+`tigris analyze -v` shows how each stage of a given model tiles.
 
 ## Receptive field and halo
 

@@ -19,33 +19,34 @@ tigris codegen PLAN [OPTIONS]
 
 ## Options
 
-| Flag | Type | Required | Description |
-|------|------|----------|-------------|
-| `PLAN` | path | yes | Compiled `.tgrs` plan file |
-| `-b`, `--backend` | choice | no | Kernel backend: `reference`, `cmsis-nn`, `esp-nn` (default: `reference`) |
-| `-o`, `--output` | path | no | Output C file path |
-| `--format` | choice | no | Output shape: `app` (standalone harness, default) or `core` (embeddable deployment glue) |
-| `--header` | path | no | Header output path for `--format core`; defaults to a sibling `.h` file |
-| `--name` | C identifier | no | Public-symbol prefix for `--format core` (default: `tigris_codegen`) |
+| Flag | Type | Description |
+|------|------|-------------|
+| `PLAN` | path | Compiled `.tgrs` plan |
+| `-b`, `--backend` | `reference`, `cmsis-nn`, `esp-nn` | Kernel backend (default `reference`). The accelerated backends are int8 only; a float32 plan on them gets the reference kernels. |
+| `-o`, `--output` | path | C file to write |
+| `--format` | `app`, `core` | `app` is a standalone harness (default), `core` is glue for an existing application |
+| `--header` | path | Header for `--format core`; defaults to a sibling `.h` file |
+| `--name` | C identifier | Public-symbol prefix for `--format core` (default `tigris_codegen`) |
 
 ## Examples
 
-Generate reference C code:
+A standalone harness for a Cortex-M target with CMSIS-NN kernels:
+
+```bash
+tigris codegen vww.tgrs --backend cmsis-nn -o vww.c
+```
+
+```text
+wrote vww.c   app, cmsis-nn backend, 5.25 KiB
+```
+
+The plan stays a separate file; the generated C loads it at run time.
+
+Portable C99 on the reference kernels, and the ESP32 family with ESP-NN:
 
 ```bash
 tigris codegen model.tgrs -o model.c
-```
-
-Generate for ESP-NN backend:
-
-```bash
 tigris codegen model.tgrs --backend esp-nn -o model_esp.c
-```
-
-Generate for CMSIS-NN backend:
-
-```bash
-tigris codegen model.tgrs --backend cmsis-nn -o model_cmsis.c
 ```
 
 Generate an embeddable deployment core for an existing application:

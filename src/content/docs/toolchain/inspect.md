@@ -18,11 +18,11 @@ The format is detected from the file contents, so the extension does not matter.
 
 ## Options
 
-| Flag | Type | Required | Description |
-|------|------|----------|-------------|
-| `MODEL` | path | yes | TFLite model, ONNX model or `.tgrs` plan |
-| `-v`, `--verbose` | flag | no | Add the per-step or per-stage tables and the full tensor listings |
-| `--json` | flag | no | Print complete, versioned metadata as JSON |
+| Flag | Type | Description |
+|------|------|-------------|
+| `MODEL` | path | TFLite model, ONNX model or `.tgrs` plan |
+| `-v`, `--verbose` | flag | Adds the per-step or per-stage tables and the full tensor listings |
+| `--json` | flag | Complete, versioned metadata as JSON |
 
 ## Models
 
@@ -63,7 +63,16 @@ converts       yes
   matrix products from their shapes. It is a measure of size, not of latency.
 - `largest activations` lists the three largest tensors the model computes or takes as
   input, and the step that writes each.
-- `converts` says whether `analyze` and `compile` accept the model, and if not, why.
+- `converts` says whether `analyze` and `compile` accept a TFLite model, and if
+  not, every reason. For the TFLite Micro Ethos-U example, whose single operator
+  is a custom one:
+
+  ```text
+  converts       no, 1 reason
+                 operator 0 CUSTOM:ethos-u: not supported
+  ```
+
+  For an ONNX model, `analyze` names the operators it cannot compile.
 
 With `-v`, a `steps` table lists every operator with its output shape and size, the
 weights it reads and its MACs, followed by the constants.

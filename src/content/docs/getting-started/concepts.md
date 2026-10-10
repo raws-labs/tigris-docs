@@ -87,13 +87,17 @@ The execution plan specifies *what* to compute (operator type, tensor shapes, qu
 |---------|--------|-------|
 | `reference` | Any | Portable C99. Correct but slow. Handles both float32 and int8 models. |
 | `cmsis-nn` | Arm Cortex-M | Arm's optimized kernels for Cortex-M family (DSP on M4/M7, Helium on M55, plain C fallback elsewhere). |
-| `esp-nn` | ESP32 family | Xtensa SIMD intrinsics, ~20x faster than reference. |
+| `esp-nn` | ESP32 family | Espressif's optimized int8 kernels for the ESP32 family. |
 
-The same `.tgrs` plan works with any backend. Swapping `reference` for `esp-nn` on ESP32-S3 can yield 10-20x speedups with the same plan and identical results.
+The same `.tgrs` plan works with any backend, and the int8 results of the
+accelerated kernels match the reference kernels. On an ESP32-S3, the int8 DS-CNN
+keyword-spotting plan runs in 20.31 ms with ESP-NN and 565.3 ms on the reference
+kernels, from the same plan
+([tigris-bench](https://github.com/raws-labs/tigris-bench), ESP32-S3 latency results).
 
 ## Quantization
 
-TiGrIS handles both float32 and int8 quantized models. For int8, the compiler folds ONNX QDQ (QuantizeLinear / DequantizeLinear) nodes at compile time, precomputing the fixed-point multipliers and right-shift values each operator needs. Activations stated as uint8, which is what an ONNX quantizer emits by default, are restated as int8 at compile time; that is exact, since the zero point moves by the same 128. A plan runs on one dtype throughout, but the interface it presents is the one the model file declares: the plan records that dtype per input and output, and `tigris_input_write()` and `tigris_output_read()` convert across the boundary. Hand over and read back exactly what the ONNX model states, whatever encoding the plan executes on.
+TiGrIS handles both float32 and int8 quantized models. An int8 TFLite model is read with the quantization the converter wrote. For an ONNX model, the compiler folds QDQ (QuantizeLinear / DequantizeLinear) nodes at compile time, precomputing the fixed-point multipliers and right-shift values each operator needs. Activations stated as uint8, which is what an ONNX quantizer emits by default, are restated as int8 at compile time; that is exact, since the zero point moves by the same 128. A plan runs on one dtype throughout, but the interface it presents is the one the model file declares: the plan records that dtype per input and output, and `tigris_input_write()` and `tigris_output_read()` convert across the boundary. Hand over and read back exactly what the model file states, whatever encoding the plan executes on.
 Both symmetric and asymmetric quantization are supported. Quantize your model with any standard tool and TiGrIS handles the rest.
 
 Int8 is recommended for embedded deployment: it cuts memory by 4x and unlocks SIMD kernel backends (ESP-NN, CMSIS-NN) that only support integer arithmetic.

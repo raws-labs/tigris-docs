@@ -50,8 +50,11 @@ operator 12 STRIDED_SLICE: a zero stride
 - Fused activations `NONE`, `RELU` or `RELU6`.
 - Shapes fixed in the file. `SHAPE`, `ZEROS_LIKE`, `FILL` and
   `BROADCAST_ARGS` convert when everything they read is fixed in the file:
-  they become constants. A `FILL` of a value computed at run time does not
-  convert.
+  they become constants. So does arithmetic on such constants through
+  `STRIDED_SLICE`, `SLICE`, `PACK`, `CONCATENATION`, `RESHAPE`, `SQUEEZE`,
+  `EXPAND_DIMS` and int32 `ADD`, `SUB` and `MUL`, which is how Keras exports a
+  `Reshape` that keeps the batch axis. A `FILL` of a value computed at run time
+  does not convert.
 
 ## Supported operators
 

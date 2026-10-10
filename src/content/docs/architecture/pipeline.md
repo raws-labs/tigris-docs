@@ -1,11 +1,13 @@
 ---
 title: "Compilation Pipeline"
-description: "How TiGrIS compiles an ONNX model into a .tgrs execution plan through seven stages, ending in a binary the C99 runtime runs directly on the target device."
+description: "How TiGrIS compiles an ONNX or TFLite model into a .tgrs execution plan through seven stages, ending in a binary the C99 runtime runs directly on the target device."
 sidebar:
   order: 310
 ---
 
 TiGrIS compiles an ONNX model into a `.tgrs` execution plan through seven stages. Each stage transforms the model representation, culminating in a binary that the C99 runtime executes directly on the target device.
+
+A TFLite model enters the same pipeline: the frontend reads the FlatBuffer and states each operator as an ONNX operator or a pattern of them, or as a compiler operator that carries TFLite's exact semantics where ONNX has no equivalent. Constants and static shape arithmetic are folded first, and an operator that cannot convert is refused with its index, name and reason.
 
 ## 1. Model Loading
 
@@ -21,7 +23,7 @@ Parses the ONNX protobuf and builds an `AnalyzedGraph`, the compiler's internal 
 tigris analyze model.onnx -m 256K -f 4M
 ```
 
-The `analyze` command runs stages 1 through 4 and prints the results without producing a binary.
+`tigris analyze` runs the whole pipeline in memory and reports what it found without writing a binary.
 
 ## 2. Normalization
 
