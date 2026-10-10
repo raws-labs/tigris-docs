@@ -76,6 +76,15 @@ export default defineConfig({
       head: [
         { tag: "link", attrs: { rel: "icon", href: "/favicon.ico", sizes: "32x32" } },
         { tag: "link", attrs: { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" } },
+        // Cookieless, self-hosted Umami, as the privacy page states.
+        {
+          tag: "script",
+          attrs: {
+            defer: true,
+            src: "https://analytics.raws.at/script.js",
+            "data-website-id": "d1687a19-2931-46ae-a6b4-3cfa0e69f8f7",
+          },
+        },
       ],
       // Code syntax theme. `themes` is [darkTheme, lightTheme]; swap either for
       // any bundled Shiki theme name (full list: https://shiki.style/themes).
