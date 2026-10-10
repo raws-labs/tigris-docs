@@ -124,16 +124,17 @@ with its runtime requirements; see [`tigris zoo`](/toolchain/zoo/).
 See [Runtime Integration](/runtime/integration/) for
 manual loading details.
 
-## Step 5: Trace the schedule (optional)
+## Step 5: Trace the plan (optional)
 
-Print the execution trace before deploying:
+Run the plan once on the host runtime and see what it does:
 
 ```bash
 tigris analyze mobilenet_v1_matched.onnx -m 64K -m 8M --trace
 ```
 
-This prints each stage's reloads, operators with their shapes and live fast
-memory, and spills. It does not run inference.
+This prints, per stage, the tiles, the bytes read from and written to slow memory,
+and the highest fast memory use, as measured by the runtime. Add `-v` for every
+load, spill and kernel call.
 
 ## Step 6: Deploy
 
