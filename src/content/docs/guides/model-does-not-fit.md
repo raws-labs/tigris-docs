@@ -189,8 +189,8 @@ encoding it is stored in. The runtime converts across that boundary, so an appli
 hands over and reads back float32.
 
 Read the trace before calling it done. `tigris analyze mobilenetv2-int8.onnx -m 64K
---trace` lists every tensor each stage reloads from the slow pool and spills back to
-it. All of that is traffic per inference, and on a part where the slow pool is external
+--trace` runs the plan on the host runtime and reports, per stage, the bytes it reads
+from the slow pool and writes back. All of that is traffic per inference, and on a part where the slow pool is external
 PSRAM it is what sets the latency. A larger fast arena buys fewer stages and less of it.
 
 ## When nothing works

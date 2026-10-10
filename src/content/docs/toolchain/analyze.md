@@ -22,7 +22,8 @@ tigris analyze MODEL [OPTIONS]
 | `-f`, `--flash` | size | no | Flash budget for plan fit check (e.g. `4M`) |
 | `-v`, `--verbose` | flag | no | Add the per-stage table |
 | `--json` | flag | no | Emit the analysis as versioned JSON |
-| `--trace` | flag | no | Print the step-by-step execution trace instead of the summary |
+| `--trace` | flag | no | Run the plan on the host runtime and print what it did instead of the summary |
+| `--input` | path (multiple) | no | Input for `--trace`, in the formats `tigris run` reads; zeros when omitted |
 | `--input-shape` | `NAME:1x3x224x224` (multiple) | no | Shape to compile an input for. Overrides what the model declares; a dimension the model leaves free is otherwise bound to 1 |
 
 ## Size Syntax
@@ -94,14 +95,49 @@ before tiling, its input and output tensor counts, and how it tiles.
 
 ## Execution trace
 
-`--trace` prints the schedule step by step instead of the summary: per stage, the
-tensors it reloads from slow memory, each operator with its input and output shapes
-and the live fast memory after it, and the tensors it spills. It does not run
-inference.
+`--trace` compiles the plan in memory, runs it once on the host runtime bundled with
+the package, and prints what the runtime did. The numbers are measured, not
+predicted: the runtime reports every load, spill, allocation and tile as it happens.
 
 ```bash
 tigris analyze mobilenet_v1_matched.onnx -m 64K -m 8M --trace
 ```
+
+```text
+mobilenet_v1_matched.onnx   traced on runtime 0.11.4, host reference backend, zero input
+  moved       208.01 KiB written, 559.38 KiB read
+  fast peak   64.00 KiB of 64.00 KiB
+
+stage   kind      tiles         read      written   fast peak    slow used
+    0   chain 5      16    87.38 KiB   128.00 KiB   63.62 KiB   176.00 KiB
+    5   chain 4      16   308.00 KiB    64.00 KiB   54.00 KiB   192.00 KiB
+    9   chain 3       8   148.00 KiB    16.00 KiB   50.00 KiB    80.00 KiB
+   12   untiled            16.00 KiB         10 B   64.00 KiB    16.03 KiB
+
+541 events; their bytes equal the runtime's own counters. Host alignment is 32 bytes; a target with less uses at most these bytes.
+```
+
+`moved` is the traffic between fast and slow memory for one inference: bytes written
+to slow memory and bytes read back. On a target whose slow pool is external PSRAM,
+this traffic costs time on every inference. Each row of the table is one stage or one
+chain of stages: how it ran, how many tiles, what it read and wrote, the highest fast
+memory use and the slow memory in use. When weights are compressed, a `weights` row
+gives the bytes decompressed into fast memory.
+
+The last line checks the trace against the runtime's own counters. If the two
+disagree, a `mismatch:` line names the difference. The host aligns tensors to 32
+bytes; a target with smaller alignment needs at most the memory shown.
+
+With `-v`, each stage lists its events in order: `alloc`, `load` and `spill` with
+the tensor, the source and destination offsets (`slow+N`, `fast+N`) and the bytes,
+`move` for compaction and line-buffer rolls, `op` for each kernel call, `reset` when
+a tile frees its fast memory, and `weights` and `copy` for decompressed weights and
+state or control-flow copies. Tiled stages group events under `tile N` with the rows
+and columns the tile covers.
+
+The trace runs on zeros unless `--input` gives real data, in the same formats as
+[`tigris run`](/toolchain/run/). The schedule is fixed at compile time, so the input
+changes the trace only where the plan branches on data (`If`, `While`).
 
 ## Examples
 
