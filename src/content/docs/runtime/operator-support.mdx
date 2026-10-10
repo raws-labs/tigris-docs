@@ -29,8 +29,9 @@ explicitly uses the portable float implementation.
 
 ## Supported operators
 
-The table covers operators that may remain after TiGrIS normalizes an ONNX
-graph. **Native** means the vendor library is normally used. **Portable
+The table covers the plan operators that remain after TiGrIS normalizes an
+ONNX graph or converts a TFLite model; TFLite operator names and their limits
+are in [Compiling a TFLite Model](/guides/tflite-models/). **Native** means the vendor library is normally used. **Portable
 fallback** remains supported but does not receive vendor acceleration.
 
 <CapabilityMatrix mode="matrix" />
@@ -63,7 +64,8 @@ every ONNX attribute combination.
 
 ## Keeping this page accurate
 
-These tables describe the currently released `tigris-ml` package. They are
-generated from its capability contract and automatically verified against the
-published package for every website release. Development CI separately checks
-the next documentation state against compiler and runtime `develop`.
+These tables are rendered from the compiler's capability contract,
+`operator-capabilities-v1.json`. Compiler and runtime CI check that contract
+against the runtime's dispatch tables on every change. This page shows the
+contract of the integration branch; each archived version in the version
+selector shows the one its release shipped.
