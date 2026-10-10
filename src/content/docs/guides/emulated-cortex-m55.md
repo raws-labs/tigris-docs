@@ -108,7 +108,7 @@ OUTPUT n=10 checksum=4869 min=-128 max=127 nonmin=6
 ARENA fast_peak=130176 slow_used=16 total_sram=130192 bytes (fast_cap=131072 slow_cap=262144)
 ```
 
-That model's naive peak is 735.00 KiB, with a single 1x48x112x112 activation
+That model's unscheduled peak is 735.00 KiB, with a single 1x48x112x112 activation
 accounting for 588.00 KiB of it. Seventeen stages bring the working set down to
 130,192 bytes, on-chip, with the slow tier barely touched. A runtime that
 allocates one contiguous arena needs the full 735 KiB and does not run here at

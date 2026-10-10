@@ -39,10 +39,28 @@ Check whether the model fits within a 64 KB SRAM + 8 MB PSRAM budget (typical fo
 tigris analyze mobilenet_v1_matched.onnx -m 64K -m 8M -f 16M
 ```
 
-The SRAM panel reports the current scheduled peak, stages, spill/reload volume,
-and tiling decision. Continue only when it ends in a `PASS` verdict. The flash
-panel independently confirms whether the estimated plan fits the 16 MiB flash
-budget. No hardware is required for analysis.
+```text
+mobilenet_v1_matched.onnx   int8, 31 operators
+  input    input    1x3x128x128 float32, stored as int8 at scale 0.0392704, zero point -1
+  output   l33_dq   1x10 float32, stored as int8 at scale 0.00390625, zero point -128
+fits 64.00 KiB fast memory, 13 stages, 12 tiled
+
+memory
+  unscheduled       384.00 KiB
+  largest tensor    256.00 KiB   1x64x64x64
+  this plan          64.00 KiB   0 B headroom
+  slow memory       192.00 KiB   budget 8.00 MiB
+  also fits at       32.00 KiB   25 stages, 24 tiled
+  also fits at       16.00 KiB   29 stages, 28 tiled
+  does not fit at     8.00 KiB
+
+flash
+  plan            3.35 MiB   weights 3.09 MiB, overhead 269.93 KiB
+  flash budget   16.00 MiB   fits
+```
+
+Continue when the verdict line starts with `fits`. The `flash` section confirms the
+plan fits the 16 MiB flash budget. No hardware is required for analysis.
 
 ## Step 2: Compile
 
@@ -70,7 +88,7 @@ plan without a board. `inspect` shows the interface the plan expects:
 tigris inspect mobilenet.tgrs
 ```
 
-The input is declared as float32 in stored NHWC order, `[1, 128, 128, 3]`, so
+The input is declared as float32 in stored NHWC order, `1x128x128x3`, so
 one input is 49152 float32 values, 196608 bytes. A smoke run with an all-zero
 input:
 
@@ -106,16 +124,16 @@ with its runtime requirements; see [`tigris zoo`](/toolchain/zoo/).
 See [Runtime Integration](/runtime/integration/) for
 manual loading details.
 
-## Step 5: Simulate (optional)
+## Step 5: Trace the schedule (optional)
 
-Inspect the execution trace before deploying:
+Print the execution trace before deploying:
 
 ```bash
-tigris simulate mobilenet_v1_matched.onnx -m 64K -m 8M
+tigris analyze mobilenet_v1_matched.onnx -m 64K -m 8M --trace
 ```
 
-This prints the current per-stage operator order, tensor shapes, live-memory
-estimate, tile geometry, and spill/reload actions. It does not run inference.
+This prints each stage's reloads, operators with their shapes and live fast
+memory, and spills. It does not run inference.
 
 ## Step 6: Deploy
 

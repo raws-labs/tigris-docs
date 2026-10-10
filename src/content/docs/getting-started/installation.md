@@ -26,7 +26,7 @@ platform:
 Native wheels bundle the portable C runtime as a host library, so
 [`tigris run`](/toolchain/run/) can execute compiled plans on your machine. The
 pure Python wheel has every other command: `analyze`, `compile`, `codegen`,
-`inspect`, `simulate` and `zoo`. There `run` stops with "Bundled host runtime is
+`inspect` and `zoo`. There `run` stops with "Bundled host runtime is
 unavailable" unless you build the host library from the runtime sources and set
 `TIGRIS_HOST_LIBRARY` to it; see
 [Using your own host library](/toolchain/run/#using-your-own-host-library).

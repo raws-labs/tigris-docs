@@ -76,22 +76,27 @@ Then compile as usual:
 tigris analyze model.int8.onnx -m 64K
 ```
 
-```
+```text
 warning: input axis 0 (batch_size) is unset; using 1 (--input-shape overrides)
-╭────────────────────── TiGrIS - mobilenetv2.qdq-int8 ───────────────────────╮
-│ Operators            65                                                    │
-│ Tensors              174 (66 activations)                                  │
-│ Peak memory (naive)  1.44 MiB                                              │
-│ Largest tensor       1x96x112x112 (1.15 MiB)                               │
-│ Quantization         INT8 (QDQ)                                            │
-│ Input                input 1x3x224x224 float32, stored as int8 at scale    │
-│                      0.0413059, zero point -2                              │
-│ Output               output_QuantizeLinear_Input 1x1000 float32, stored as │
-│                      int8 at scale 0.0587218, zero point 6                 │
-╰────────────────────────────────────────────────────────────────────────────╯
+mobilenetv2-int8.onnx   int8, 65 operators
+  input    input    1x3x224x224 float32, stored as int8 at scale 0.0186584, zero point -14
+  output   output   1x1000 float32, stored as int8 at scale 0.160799, zero point -52
+fits 64.00 KiB fast memory, 58 stages, 53 tiled
+
+memory
+  unscheduled        1.44 MiB
+  largest tensor     1.15 MiB   1x96x112x112
+  this plan         63.00 KiB   1.00 KiB headroom
+  slow memory        1.29 MiB
+  also fits at      32.00 KiB   64 stages, 62 tiled
+  also fits at      16.00 KiB   64 stages, 63 tiled
+  does not fit at    8.00 KiB
+
+flash
+  plan   3.39 MiB   weights 3.38 MiB, overhead 15.85 KiB
 ```
 
-Note the Input and Output rows. The model declares float32 at both ends and the
+Note the input and output rows. The model declares float32 at both ends and the
 plan executes on int8, so the runtime converts at the boundary: an application
 hands over and reads back float32 either way. Quantizing does not change the
 interface your code talks to.
@@ -109,7 +114,7 @@ both ways:
 
 Roughly a third of the error for 0.42 MiB. Take per-channel unless flash is the
 binding constraint. The activation memory does not change either way: both have
-a 1.44 MiB naive peak and a 62.50 KiB floor, because only the weights are
+a 1.44 MiB unscheduled peak and a 15.00 KiB floor, because only the weights are
 affected.
 
 One catch: `axis` on `DequantizeLinear` arrived in opset 13, so per-channel

@@ -44,16 +44,12 @@ tigris run downloaded-model/model.tgrs \
     --input downloaded-model/example-input.bin --output prediction.bin
 ```
 
-```
-╭───────────────────────────────── TiGrIS Run ─────────────────────────────────╮
-│ Runtime          0.11.4                                                      │
-│ Source           bundled                                                     │
-│ Backend          Host reference                                              │
-│ Output           prediction.bin                                              │
-│ Fast arena peak  768 B                                                       │
-│ Slow arena peak  768 B                                                       │
-╰──────────────────────────────────────────────────────────────────────────────╯
-Arena peaks exclude the plan, executor workspace, and Python process memory.
+```text
+model.tgrs   runtime 0.11.4, bundled, host reference backend
+  fast arena peak   768 B   measured; plan and workspace excluded
+  slow arena peak   768 B
+
+wrote prediction.bin   1x24 float32
 ```
 
 `example-output.bin` is the ONNX Runtime output for the example input, so compare
@@ -64,7 +60,7 @@ import numpy as np
 
 prediction = np.fromfile("prediction.bin", dtype="<f4")
 reference = np.fromfile("downloaded-model/example-output.bin", dtype="<f4")
-print(np.abs(prediction - reference).max())   # 2.4e-07 for electricity-hourly
+print(np.abs(prediction - reference).max())   # 1.2e-07 for electricity-hourly
 ```
 
 The tolerance each zoo model is validated against is recorded in its
@@ -178,6 +174,6 @@ tigris, version X.Y.Z (runtime X.Y.Z; TIGRIS_HOST_LIBRARY=/path/to/libtigris_hos
 Use the runtime release that matches your `tigris-ml` version. The library must
 implement the host ABI `tigris-ml` expects; a mismatch is refused. When the
 variable is set, `run` uses that library or fails with an error naming it; it
-never falls back to the bundled one. `tigris --version`, the run panel and
+never falls back to the bundled one. `tigris --version`, the first line of `run` output and
 `run --json` all show which library ran. See [Host Library](/runtime/host-library/)
 for the C API.
