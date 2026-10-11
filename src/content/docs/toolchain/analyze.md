@@ -104,6 +104,20 @@ writes a plan at the given budgets, which also have to hold each stage's
 decompressed weights. `as int8` estimates a float32 model's plan after
 quantization. With `-f`, `flash budget` says whether the plan fits.
 
+### Runtime build
+
+A plan that needs more than a default runtime build holds, for example more tensors
+or more outputs from one stage than the runtime's limits allow by default, ends the
+report with the `-D` options its runtime needs, as [`inspect`](/toolchain/inspect/)
+states them for a compiled plan:
+
+```text
+runtime build   -DTIGRIS_MAX_STAGE_OUTPUTS=19
+```
+
+A runtime built without them refuses the plan. The row is absent when the defaults
+suffice. [Runtime Integration](/runtime/integration/) lists the limits.
+
 ## Stages
 
 `-v` adds one row per stage:
@@ -205,6 +219,7 @@ then these sections:
 | `fast` | Budget, verdict, scheduled peak, stage counts, every blocking stage with its reason |
 | `slow` | Budget, peak, whether it fits, measured `traffic` as `written` and `read` bytes or `null` |
 | `flash` | Budget, weight and plan bytes, whether it fits, estimates |
+| `runtime_build` | Each build limit the plan needs above its default, with `name`, `needed` and `default`; empty when the defaults suffice |
 | `budgets_tried` | The other budgets and their outcome |
 | `stages` | One entry per stage |
 
