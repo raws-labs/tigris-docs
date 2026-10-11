@@ -25,7 +25,9 @@ operator 12 STRIDED_SLICE: a zero stride
 ## What the plan keeps from the model
 
 - **Interface dtypes.** An int8 model takes int8 inputs and returns int8
-  outputs, as TFLite hands them over; a float32 model stays float32. ARG_MAX
+  outputs, as TFLite hands them over; a float32 model stays float32. An int8
+  model the converter wrote with uint8 inputs and outputs keeps them: the plan
+  holds int8 and converts at the boundary. ARG_MAX
   and ARG_MIN outputs and index inputs are int32, and comparison results are
   bool.
 - **Interface shapes.** Inputs and outputs keep TFLite's channels-last axis
@@ -43,8 +45,9 @@ operator 12 STRIDED_SLICE: a zero stride
 - Custom operators do not convert, except `TFLite_Detection_PostProcess`.
 - All activations int8, or all float32. Bool and int32 tensors appear only
   where the operators below produce or take them, and the detection results
-  are float32 in an int8 model too. int16 activations and hybrid models (int8
-  weights with float32 activations) do not convert.
+  are float32 in an int8 model too. int16 activations, uint8 activations other
+  than at the model boundary, and hybrid models (int8 weights with float32
+  activations) do not convert.
 - int8 activations quantized per tensor; weights constant, int8 weights
   symmetric, per channel or per tensor.
 - Fused activations `NONE`, `RELU` or `RELU6`.
@@ -146,7 +149,7 @@ memory of about 41 bytes per box during its stage.
 | `BROADCAST_TO`, `DYNAMIC_UPDATE_SLICE` | start indices constant, or int32 from a model input, `ARG_MAX`/`ARG_MIN` or int32 `ADD`/`SUB`/`MUL`; starts are clamped so the update fits, as in TFLite |
 | `SPACE_TO_DEPTH`, `DEPTH_TO_SPACE`, `SPACE_TO_BATCH_ND`, `BATCH_TO_SPACE_ND` | rank-4 input |
 | `RESIZE_BILINEAR`, `RESIZE_NEAREST_NEIGHBOR` | not `align_corners` and `half_pixel_centers` together |
-| `QUANTIZE`, `DEQUANTIZE` | float32 or int8 to int8, int8 to float32 |
+| `QUANTIZE`, `DEQUANTIZE` | float32 or int8 to int8, int8 to float32; uint8 to int8 behind a model input and int8 to uint8 before a model output |
 
 ## Memory
 
