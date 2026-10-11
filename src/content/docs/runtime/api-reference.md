@@ -593,8 +593,8 @@ derived from these plan limits:
 | `TIGRIS_MAX_STAGE_OUTPUTS` | 16 | 1-65,535 |
 | `TIGRIS_MAX_CHAIN_STAGES` | 16 | 2-65,535 |
 | `TIGRIS_MAX_SPATIAL_OPS_PER_STAGE` | 8 | 1 or greater |
-| `TIGRIS_MAX_SUBGRAPHS` | 16 | 1 or greater |
-| `TIGRIS_MAX_SUBGRAPH_DEPTH` | 4 | 1 or greater |
+| `TIGRIS_MAX_SUBGRAPHS` | 16 | 1-65,535 |
+| `TIGRIS_MAX_SUBGRAPH_DEPTH` | 4 | 1-65,535 |
 
 `TIGRIS_MAX_SUBGRAPHS` counts the graphs of a plan with control flow, the main
 graph included; `TIGRIS_MAX_SUBGRAPH_DEPTH` bounds how many `If` and `While`

@@ -190,11 +190,14 @@ The executor workspace is bounded by compile-time plan limits:
 | `TIGRIS_MAX_STAGE_OUTPUTS` | 16 | 1-65,535 |
 | `TIGRIS_MAX_CHAIN_STAGES` | 16 | 2-65,535 |
 | `TIGRIS_MAX_SPATIAL_OPS_PER_STAGE` | 8 | 1 or greater |
+| `TIGRIS_MAX_SUBGRAPHS` | 16 | 1-65,535 |
+| `TIGRIS_MAX_SUBGRAPH_DEPTH` | 4 | 1-65,535 |
 
 Override these definitions consistently for every runtime translation unit.
 Lower limits reduce the workspace; higher limits accept larger plans and
 increase it. The loader returns `TIGRIS_ERR_PLAN_LIMITS` before execution when
-a plan exceeds the configured limits. `sizeof(tigris_executor_workspace_t)`
+a plan exceeds the configured limits; `tigris analyze`, `compile` and `inspect`
+name the `-D` options a plan needs above the defaults. `sizeof(tigris_executor_workspace_t)`
 and `tigris_executor_workspace_size()` are the authoritative workspace size
 for a particular build.
 
