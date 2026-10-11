@@ -55,7 +55,7 @@ memory
   also fits at             4.00 KiB   28 stages, 27 tiled
 
 flash
-  plan           253.61 KiB   weights 213.93 KiB, overhead 39.68 KiB
+  plan           239.31 KiB   weights 213.93 KiB, overhead 25.38 KiB
   flash budget     1.00 MiB   fits
 ```
 

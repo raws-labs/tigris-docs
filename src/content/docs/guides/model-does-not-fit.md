@@ -152,7 +152,7 @@ Error: no plan written: decompressed weights need 4.89 MiB of fast memory, the b
 ```
 
 On a model whose per-stage weights are small it compiles, but the saving is
-thin. DS-CNN at `-m 128K` goes from 89.94 KiB to 88.73 KiB of plan, about one
+thin. DS-CNN at `-m 128K` goes from 89.64 KiB to 88.44 KiB of plan, about one
 percent, in exchange for 66.50 KiB of the fast memory. Reach for it when weights are
 compressible and stages are small, not as a general fix.
 
@@ -182,7 +182,7 @@ memory
   does not fit at    8.00 KiB
 
 flash
-  plan   3.39 MiB   weights 3.38 MiB, overhead 13.39 KiB
+  plan   3.39 MiB   weights 3.38 MiB, overhead 10.10 KiB
 ```
 
 The input and output rows are the plan's contract. The model declares float32 at both
