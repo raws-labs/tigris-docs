@@ -26,6 +26,7 @@ tigris compile MODEL -m FAST [-m SLOW] [-f FLASH] [-c lz4] [--xip] [-o PLAN]
 | `-c`, `--compress` | `none`, `lz4` | Compress weights per stage (default `none`) |
 | `--xip` | flag | Read weights in place from flash at run time instead of copying them to RAM |
 | `--input-shape` | `NAME:1x3x224x224`, repeatable | Shape for an input the model leaves open; an open dimension is otherwise bound to 1 |
+| `--keep-names` | flag | Keep every operator and tensor name in the plan for `inspect`; by default the plan names only the model, its inputs and its outputs |
 
 Sizes and the two memory pools are explained in the
 [CLI overview](/toolchain/overview/#memory-budgets).
@@ -50,9 +51,9 @@ memory
   slow memory            45.00 KiB   budget 1.00 MiB
 
 flash
-  plan   253.61 KiB   weights 213.93 KiB, overhead 39.68 KiB
+  plan   239.31 KiB   weights 213.93 KiB, overhead 25.38 KiB
 
-wrote vww.tgrs   253.61 KiB
+wrote vww.tgrs   239.31 KiB
 ```
 
 The report is `analyze`'s without the rows that need extra work: no other budgets
@@ -84,8 +85,11 @@ Error: no plan written: decompressed weights need 88.31 KiB of fast memory, the 
 ## What a plan holds
 
 A `.tgrs` file holds the operator schedule, the stages and how each one tiles, the
-tensor shapes and quantization, the memory the plan needs, and the weights. It is
-data, not code: the runtime reads it in place and executes it in the fast and
+tensor shapes and quantization, the memory the plan needs, and the weights. It
+names the model and its inputs and outputs, which is all the runtime and generated
+code read; `--keep-names` also keeps the operator and intermediate tensor names, at
+about 14 KiB for the MLPerf Tiny VWW model, so that
+[`inspect -v`](/toolchain/inspect/) can show them. It is data, not code: the runtime reads it in place and executes it in the fast and
 slow buffers the application supplies, without a general-purpose allocator. The
 same plan runs on every kernel backend; [`codegen`](/toolchain/codegen/) picks one.
 [Compilation Pipeline](/architecture/pipeline/) describes how the compiler gets
@@ -111,7 +115,7 @@ tigris compile ds_cnn.onnx -m 128K -c lz4 -f 4M -o ds_cnn.tgrs
 ```
 
 ```text
-wrote ds_cnn.tgrs   88.73 KiB, LZ4, 66.50 KiB of the 128.00 KiB fast memory holds decompressed weights
+wrote ds_cnn.tgrs   88.44 KiB, LZ4, 66.50 KiB of the 128.00 KiB fast memory holds decompressed weights
 ```
 
 Size the application's fast arena with `tigris_fast_arena_required(&plan)`,

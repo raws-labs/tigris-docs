@@ -125,7 +125,10 @@ runtime build   default limits suffice
 
 With `-v`, a `stages` table lists each stage's operators, its peak before tiling, the
 weights it reads and how it tiles, followed by every operator's parameters and the
-stored tensors.
+stored tensors. A plan compiled without
+[`--keep-names`](/toolchain/compile/#options) names only the model, its inputs and
+its outputs: its operators show as `(unnamed)` and its other tensors by their id,
+for example `tensor 3`.
 
 A plan's schema number says which plan format it uses; it does not by itself name a
 runtime version.

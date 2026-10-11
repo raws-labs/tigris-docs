@@ -92,7 +92,7 @@ memory
   also fits at             4.00 KiB   28 stages, 27 tiled
 
 flash
-  plan   253.61 KiB   weights 213.93 KiB, overhead 39.68 KiB
+  plan   239.31 KiB   weights 213.93 KiB, overhead 25.38 KiB
 ```
 
 The first `-m` is fast memory, the second slow memory. The verdict line says the
@@ -137,7 +137,7 @@ tigris compile vww_96_int8.tflite -m 32K -m 1M -o vww.tgrs
 `compile` prints the same report and ends with:
 
 ```text
-wrote vww.tgrs   253.61 KiB
+wrote vww.tgrs   239.31 KiB
 ```
 
 The `.tgrs` plan holds the schedule, the tiling, the quantization and the weights.
