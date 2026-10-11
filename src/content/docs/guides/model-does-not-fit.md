@@ -182,7 +182,7 @@ memory
   does not fit at    8.00 KiB
 
 flash
-  plan   3.39 MiB   weights 3.38 MiB, overhead 15.85 KiB
+  plan   3.39 MiB   weights 3.38 MiB, overhead 13.39 KiB
 ```
 
 The input and output rows are the plan's contract. The model declares float32 at both

@@ -92,7 +92,7 @@ tigris inspect mobilenet.tgrs
 ```
 
 ```text
-mobilenet.tgrs   plan, model mobilenet_v1_matched, schema 9, 31 operators, 13 stages, 12 tiled, 3.35 MiB
+mobilenet.tgrs   plan, model mobilenet_v1_matched, schema 9, 31 operators, 13 stages, 12 tiled, 3.18 MiB
   input    input    1x128x128x3 float32   stored int8, NHWC
   output   l33_dq   1x10 float32          stored int8, model order
 
