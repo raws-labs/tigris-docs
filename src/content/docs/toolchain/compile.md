@@ -50,15 +50,14 @@ memory
   slow memory            45.00 KiB   budget 1.00 MiB
 
 flash
-  plan          297.25 KiB   weights 213.93 KiB, overhead 83.32 KiB
-  with -c lz4   137.00 KiB   estimate
+  plan   253.61 KiB   weights 213.93 KiB, overhead 39.68 KiB
 
-wrote vww.tgrs   297.25 KiB
+wrote vww.tgrs   253.61 KiB
 ```
 
 The report is `analyze`'s without the rows that need extra work: no other budgets
-are tried and the slow traffic is not measured. Use `analyze` for those, and
-[`inspect`](/toolchain/inspect/) to read the plan back.
+are tried, the slow traffic is not measured and LZ4 compression is not tried. Use
+`analyze` for those, and [`inspect`](/toolchain/inspect/) to read the plan back.
 
 ## When no plan is written
 

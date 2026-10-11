@@ -13,14 +13,14 @@ kernels.
 ## Usage
 
 ```bash
-tigris run MODEL --input FILE --output FILE [OPTIONS]
+tigris run PLAN --input FILE --output FILE [OPTIONS]
 ```
 
 ## Options
 
 | Flag | Type | Description |
 |------|------|-------------|
-| `MODEL` | path | Compiled `.tgrs` plan |
+| `PLAN` | path | Compiled `.tgrs` plan |
 | `--input` | `FILE` or `NAME=FILE`, repeatable, required | Input tensor as `.bin` or `.npy`; name each file with `NAME=FILE` when the model has several inputs |
 | `--output` | path, required | `.bin` or `.npy` for one output tensor, `.npz` for named outputs; the file must not exist |
 | `--json` | flag | Execution metadata as JSON |

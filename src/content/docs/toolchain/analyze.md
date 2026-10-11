@@ -55,8 +55,7 @@ memory
   also fits at             4.00 KiB   28 stages, 27 tiled
 
 flash
-  plan           297.25 KiB   weights 213.93 KiB, overhead 83.32 KiB
-  with -c lz4    137.00 KiB   estimate
+  plan           253.61 KiB   weights 213.93 KiB, overhead 39.68 KiB
   flash budget     1.00 MiB   fits
 ```
 
@@ -100,8 +99,10 @@ change in each case.
 ### Flash
 
 `plan` is the size `compile` writes, split into weights and overhead. `with -c lz4`
-and `as int8` estimate the plan with compressed weights and after quantization,
-where they apply. With `-f`, `flash budget` says whether the plan fits.
+estimates the plan with compressed weights; it appears only where `compile -c lz4`
+writes a plan at the given budgets, which also have to hold each stage's
+decompressed weights. `as int8` estimates a float32 model's plan after
+quantization. With `-f`, `flash budget` says whether the plan fits.
 
 ## Stages
 
