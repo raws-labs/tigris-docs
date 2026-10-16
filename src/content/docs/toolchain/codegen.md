@@ -64,7 +64,8 @@ tigris codegen model.tgrs --backend cmsis-nn --format core \
 
 `--format app` emits a self-contained example harness with an entry point and
 the backend's normal plan-location convention. It is the quickest path for a
-new deployment or for verifying a generated plan.
+new deployment or for verifying a generated plan. The harness reserves exactly
+the fast and slow arenas the plan needs.
 
 ### `core`
 
@@ -81,7 +82,8 @@ fits bare-metal firmware, RTOS applications, and custom instrumentation without
 copying generated runtime setup into application code.
 
 The generated header exports model-specific constants for tensor-table capacity,
-plan budget, and compressed-weight reserve. Use `--name` to choose a C-identifier
+plan budget, compressed-weight reserve, and the fast and slow arenas the plan
+needs (`<NAME>_CORE_FAST_ARENA_BYTES`, `<NAME>_CORE_SLOW_ARENA_BYTES`). Use `--name` to choose a C-identifier
 prefix for its functions, types, and macros; this lets multiple generated cores
 coexist in the same firmware. `--header` and `--name` apply only to
 `--format core`.
