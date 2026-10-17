@@ -550,6 +550,16 @@ typedef struct {
     const int32_t               *quant_data;
     uint16_t                     num_quant_params;
 
+    /* Variables kept across invocations (optional, schema v10+) */
+    const tigris_state_entry_t  *state_entries;    /* [num_state] or NULL */
+    const uint8_t               *state_section;
+    uint16_t                     num_state;
+    uint32_t                     state_bytes;      /* size of the caller's state buffer */
+    const tigris_subgraph_t     *subgraphs;        /* [num_subgraphs] or NULL */
+    uint16_t                     num_subgraphs;
+
+    const tigris_tile_plan_v10_t *tile_plans_v10;  /* schema 10+, otherwise NULL */
+
     /* Convenience: model I/O */
     const uint16_t              *model_inputs;     /* [num_model_inputs] */
     const uint16_t              *model_outputs;    /* [num_model_outputs] */
@@ -734,7 +744,8 @@ inline`; the arena-sizing helpers are implemented by the runtime library.
 | `tigris_op_bias(plan, op)` | `const void *` | Bias data pointer (or NULL) |
 | `tigris_tensor_quant(plan, t)` | `const tigris_quant_param_t *` | Quantization params (or NULL) |
 | `tigris_stage_ops(plan, stage)` | `const uint16_t *` | Op index array for a stage |
-| `tigris_stage_tile_plan(plan, stage)` | `const tigris_tile_plan_t *` | Tile plan (or NULL) |
+| `tigris_stage_tile_plan(plan, stage)` | `const tigris_tile_plan_t *` | Schema 9 tile record (or NULL) |
+| `tigris_stage_tiles(plan, stage)` | `tigris_tile_plan_v10_t` | The stage's tiling choices from either record layout; zero when untiled |
 | `tigris_model_name(plan)` | `const char *` | Model name string |
 | `tigris_weight_decompression_overhead(plan)` | `uint32_t` | Extra fast-arena bytes needed for LZ4 decompression |
 | `tigris_fast_arena_required(plan)` | `uint32_t` | Activation budget plus simultaneous compressed-weight storage; assumes an aligned arena base |

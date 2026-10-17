@@ -90,7 +90,7 @@ so their stage needs its inputs and outputs in fast memory at once.
 | With the tile, no halo | Add, Sub, Mul, Div, Max, Min, activations (Relu, Relu6, Sigmoid, Tanh, HardSwish, LeakyRelu, PRelu, Elu), elementwise math (Exp, Log, Sqrt, Abs, Floor and the rest), comparisons, logic, Where, Cast, Concat along the channel axis | Shape-preserving |
 | With the tile, whole rows | Softmax, LogSoftmax, L2Normalization, LayerNormalization | They normalize along the last stored axis, which no tile cuts |
 | Height bands of the output | Resize | On its own stage; the source band is found by dividing |
-| Bands of input rows, accumulated | GlobalAveragePool | One partial sum per channel is carried between bands |
+| Bands of input rows, accumulated | GlobalAveragePool | One partial sum per channel is carried between bands; below one row, groups of channels over runs of positions |
 | Bands of matrix rows | Gemm, MatMul, Reshape, Flatten, with elementwise operators | The second operand of a matrix product is read whole |
 | Bands along an independent axis | ReduceMean, ReduceMax, ReduceMin, ReduceSum, ReduceAll, CumSum, ArgMax, ArgMin, Gather, GatherND, EmbeddingLookup, StridedSlice, Pad, MirrorPad, ReverseV2, DynamicUpdateSlice, Split, Concat, Transpose, broadcasting binary operators | Along an axis the operator does not reduce, index, reverse or move; none for indices computed at run time |
 | Bands of a reshape | Reshape | When each band of input rows maps onto whole output rows |

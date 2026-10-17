@@ -30,14 +30,14 @@ memory
   largest tensor      4.59 MiB   1x96x112x112
   this plan         252.00 KiB   4.00 KiB headroom
   slow memory         5.17 MiB
-  slow traffic       20.58 MiB   per inference: 7.33 MiB written, 13.25 MiB read
+  slow traffic       20.25 MiB   per inference: 7.21 MiB written, 13.04 MiB read
   also fits at      128.00 KiB   64 stages, 62 tiled
   also fits at       64.00 KiB   64 stages, 63 tiled
   does not fit at    32.00 KiB
 
 flash
-  plan      13.31 MiB   weights 13.30 MiB, overhead 9.41 KiB
-  as int8    3.34 MiB   estimate
+  plan      13.31 MiB   weights 13.30 MiB, overhead 8.22 KiB
+  as int8    3.33 MiB   estimate
 ```
 
 **Unscheduled** is the high-water mark of simultaneously live activations with no
@@ -51,9 +51,9 @@ budget raises the figure and lowers the stage count:
 
 | `-m` | This plan | Stages | Tiled |
 |---|---|---|---|
-| 64K | 64.00 KiB | 64 | 63 |
+| 64K | 63.56 KiB | 64 | 63 |
 | 256K | 252.00 KiB | 58 | 53 |
-| 512K | 511.00 KiB | 43 | 38 |
+| 512K | 504.88 KiB | 43 | 38 |
 | 1M | 1008.00 KiB | 17 | 15 |
 
 So this figure does not tell you whether a smaller part would work. The `also fits at`
@@ -66,23 +66,21 @@ rows do, and the floor appears once the budget is too small.
 Same model at 32 KiB:
 
 ```text
-does not fit 32.00 KiB fast memory: 4 stages exceed it
-  stage 62   45.00 KiB   smallest tile
+does not fit 32.00 KiB fast memory: 3 stages exceed it
   stage 51   37.50 KiB   smallest 2D tile
   stage 55   37.50 KiB   smallest 2D tile
   stage 59   37.50 KiB   smallest 2D tile
 ```
 
 Each line is a stage the solver has already shrunk to its smallest tile, with the fast
-memory that tile still needs. The first line is the floor: no budget below 45.00 KiB
+memory that tile still needs. The first line is the floor: no budget below 37.50 KiB
 compiles, and the `fits at` row below the verdict names the next budget that does.
 `compile` prints the same summary and ends with `Error: no plan written`.
 
-Two kinds of stage set this floor. Stage 62 is the `GlobalAveragePool`, which tiles by
-rows of its 1x1280x7x7 input; one row and the accumulated output need 45.00 KiB in
-float32. Stages 51, 55 and 59 are 960-channel depthwise convolutions, which tile in
-both height and width; their smallest tile reads a 3x3x960 window and writes 960
-outputs, 37.50 KiB in float32.
+Stages 51, 55 and 59 are 960-channel depthwise convolutions, which tile in both
+height and width; their smallest tile reads a 3x3x960 window and writes 960 outputs,
+37.50 KiB in float32. The `GlobalAveragePool` over the 1x1280x7x7 activation does not
+appear: below one row it sums groups of channels over runs of positions.
 
 ### Spills do not fit the slow pool
 
@@ -111,11 +109,11 @@ Everything below is measured on the same model.
 
 | Variant | Unscheduled | Floor |
 |---|---|---|
-| float32, 224x224 | 5.74 MiB | 45.00 KiB |
+| float32, 224x224 | 5.74 MiB | 37.50 KiB |
 | float32, 160x160 | 2.93 MiB | 37.50 KiB |
 | float32, 128x128 | 1.88 MiB | 37.50 KiB |
-| int8, 224x224 | 1.44 MiB | 15.00 KiB |
-| int8, 128x128 | 480.00 KiB | 11.25 KiB |
+| int8, 224x224 | 1.44 MiB | 9.38 KiB |
+| int8, 128x128 | 480.00 KiB | 9.38 KiB |
 
 Each variant compiles at its floor and fails 1 KiB below it.
 
@@ -126,13 +124,10 @@ does not change what the model computes. TiGrIS reads ONNX QDQ models directly.
 
 **Lower the input resolution.** This shrinks every activation and the unscheduled
 peak with it, but the floor is set by the smallest tile of the widest layers, and a
-2D tile does not get smaller when the image does. At 160x160 the pooling stage drops
-below the depthwise stages, which then set the floor at 37.50 KiB, and 128x128 does
-not lower it further. `analyze` and `compile` take `--input-shape input:1x3x160x160`,
-so you can measure before deciding whether to retrain or re-export.
-
-Both together give 11.25 KiB for the int8 model at 128x128, down from 45.00 KiB for
-the float model at its native resolution.
+2D tile does not get smaller when the image does. For this model the floor stays at
+37.50 KiB at 160x160 and 128x128, and at 9.38 KiB for int8. `analyze` and `compile`
+take `--input-shape input:1x3x160x160`, so you can measure before deciding whether to
+retrain or re-export.
 
 ## Levers that do not move it
 
@@ -176,13 +171,13 @@ memory
   largest tensor     1.15 MiB   1x96x112x112
   this plan         63.00 KiB   1.00 KiB headroom
   slow memory        1.29 MiB
-  slow traffic       5.14 MiB   per inference: 1.83 MiB written, 3.31 MiB read
+  slow traffic       5.06 MiB   per inference: 1.80 MiB written, 3.26 MiB read
   also fits at      32.00 KiB   64 stages, 62 tiled
   also fits at      16.00 KiB   64 stages, 63 tiled
   does not fit at    8.00 KiB
 
 flash
-  plan   3.39 MiB   weights 3.38 MiB, overhead 10.10 KiB
+  plan   3.39 MiB   weights 3.38 MiB, overhead 10.11 KiB
 ```
 
 The input and output rows are the plan's contract. The model declares float32 at both

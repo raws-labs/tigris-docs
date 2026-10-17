@@ -82,7 +82,7 @@ indices, axes, padding or bounds need them as constants in the file.
 | `ABS`, `RSQRT` | |
 | `NEG`, `EXP`, `LOG`, `SQRT`, `SQUARE`, `FLOOR`, `CEIL`, `ROUND`, `SIN`, `COS`, `FLOOR_DIV`, `FLOOR_MOD` | float32 only, as in TFLite Micro |
 | `ADD_N` | int8 inputs share one quantization; refused where the int8 accumulator could overflow, from 16 inputs up |
-| `RELU`, `RELU6`, `LOGISTIC`, `TANH`, `HARD_SWISH`, `LEAKY_RELU`, `ELU`, `PRELU` | `PRELU` slope constant |
+| `RELU`, `RELU6`, `LOGISTIC`, `TANH`, `HARD_SWISH`, `LEAKY_RELU`, `ELU`, `PRELU`, `GELU` | `PRELU` slope constant |
 
 ### Normalization
 
@@ -96,7 +96,7 @@ indices, axes, padding or bounds need them as constants in the file.
 
 | Operator | Limits |
 |---|---|
-| `MEAN` | constant axes, adjacent to each other |
+| `MEAN` | constant axes |
 | `SUM`, `REDUCE_MAX`, `REDUCE_MIN` | constant axes, adjacent to each other |
 | `REDUCE_ALL` | bool input; constant adjacent axes |
 | `CUMSUM` | one constant axis |
@@ -144,7 +144,7 @@ memory of about 41 bytes per box during its stage.
 | `CONCATENATION`, `SPLIT`, `SPLIT_V`, `PACK`, `UNPACK` | int8 inputs share the output's quantization |
 | `PAD`, `PADV2`, `MIRROR_PAD` | |
 | `SLICE`, `STRIDED_SLICE` | rank 4 at most; no ellipsis, new axes or offset; no zero stride; a dropped axis needs a positive stride |
-| `GATHER`, `GATHER_ND`, `EMBEDDING_LOOKUP` | indices constant, or int32 from a model input, `ARG_MAX`/`ARG_MIN` or int32 `ADD`/`SUB`/`MUL`; an index outside its axis stops the run with an error |
+| `GATHER`, `GATHER_ND`, `EMBEDDING_LOOKUP` | the table computed or constant; indices constant, or int32 from a model input, `ARG_MAX`/`ARG_MIN` or int32 `ADD`/`SUB`/`MUL`, also through `CAST`, `RESHAPE` and `TRANSPOSE`; an int64 model input that only feeds indices is read as int32 unless the model records a range beyond it; an index outside its axis stops the run with an error |
 | `REVERSE_V2` | adjacent axes |
 | `BROADCAST_TO`, `DYNAMIC_UPDATE_SLICE` | start indices constant, or int32 from a model input, `ARG_MAX`/`ARG_MIN` or int32 `ADD`/`SUB`/`MUL`; starts are clamped so the update fits, as in TFLite |
 | `SPACE_TO_DEPTH`, `DEPTH_TO_SPACE`, `SPACE_TO_BATCH_ND`, `BATCH_TO_SPACE_ND` | rank-4 input |
