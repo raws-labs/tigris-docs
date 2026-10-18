@@ -32,10 +32,11 @@ operator 12 STRIDED_SLICE: a zero stride
   bool.
 - **Interface shapes.** Inputs and outputs keep TFLite's channels-last axis
   order, for example `1x96x96x3` for an image.
-- **Results.** Every operator below is checked against TFLite Micro with a
-  committed one-operator corpus, int8 and float32, compared byte for byte. The
-  few cases where TFLite Micro and TFLite's reference kernels disagree are
-  listed with the corpus in the compiler repository. The MLPerf Tiny reference
+- **Results.** A committed one-operator corpus checks int8 and float32 results
+  against TFLite Micro. GELU uses TFLite's reference kernels because TFLite Micro
+  does not register it; its int8 results are bit-exact and its float results use
+  a float tolerance. Other reference-kernel exceptions are listed with the
+  corpus in the compiler repository. The MLPerf Tiny reference
   models (keyword spotting, visual wake words, image classification and
   anomaly detection) produce TFLite Micro's int8 outputs byte for byte, tiled
   and untiled.
@@ -43,9 +44,10 @@ operator 12 STRIDED_SLICE: a zero stride
 ## Model requirements
 
 - Custom operators do not convert, except `TFLite_Detection_PostProcess`.
-- All activations int8, or all float32. Bool and int32 tensors appear only
-  where the operators below produce or take them, and the detection results
-  are float32 in an int8 model too. int16 activations, uint8 activations other
+- Activations int8 or float32. An int8 plan can contain float sections after
+  `DEQUANTIZE`, ending at `QUANTIZE` or a float model output. Bool and int32
+  tensors appear only where the operators below produce or take them, and
+  detection results can also be float32 in an int8 model. int16 activations, uint8 activations other
   than at the model boundary, and hybrid models (int8 weights with float32
   activations) do not convert.
 - int8 activations quantized per tensor; weights constant, int8 weights
@@ -156,9 +158,10 @@ memory of about 41 bytes per box during its stage.
 Reductions, scans, `ARG_MAX`/`ARG_MIN` and the index-based data movement
 operators (`GATHER`, `GATHER_ND`, `EMBEDDING_LOOKUP`, strided slices,
 `MIRROR_PAD`, `REVERSE_V2`, `DYNAMIC_UPDATE_SLICE`) tile in bands along an axis
-they do not reduce, index or reverse. Where no such axis exists, and for indices
-computed at run time, they run on whole tensors, so their stage needs room for
-its input and output at once. The same holds for a broadcast that is not a simple
+they do not reduce, index or reverse. A constant table can tile independent
+batches of indices computed at run time. Where no valid band exists, the
+operator runs on whole tensors, so its stage needs room for its input and output
+at once. The same holds for a broadcast that is not a simple
 repetition, such as `[1, 6, 6, 4]` against `[6, 1, 4]`, and for `SVDF` and
 `UNIDIRECTIONAL_SEQUENCE_LSTM`. A `RESHAPE` tiles when each band of its input
 rows maps onto whole rows of its output. Contiguous gathers, stride-1 slices and
@@ -194,7 +197,7 @@ In int8 models the converter keeps the boundary of an `IF` or `WHILE` in
 float32, with a `QUANTIZE` and a `DEQUANTIZE` on either side, each subgraph in its
 own encodings. The plan keeps those conversions and computes each one as TFLite
 Micro does, so the int8 results match bit for bit. The float32 boundary values
-take four bytes per element in slow memory, and the conversions run untiled.
+take four bytes per element in slow memory, and the conversions can tile with the surrounding operators.
 
 ## Not yet supported
 

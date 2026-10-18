@@ -65,8 +65,8 @@ void        tigris_host_destroy(tigris_host_t *host);
 
 `tigris_host_create` copies the plan and allocates the arenas and executor
 workspace. A `slow_capacity` of 0 selects a conservative host allocation; it is
-not a slow-memory requirement from the compiler. A plan must execute entirely in
-float32 or entirely in int8.
+not a slow-memory requirement from the compiler. An int8 plan can also execute
+float32 sections between Dequantize and Quantize or a float model output.
 
 ### Interface
 

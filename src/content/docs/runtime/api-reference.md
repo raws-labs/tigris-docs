@@ -41,7 +41,7 @@ minimum tensor alignment from the target architecture:
 | `__aarch64__` | 16 |
 | `__x86_64__` | 32 |
 | `__riscv_vector` | 16 |
-| `__XTENSA__` | 8 |
+| `__XTENSA__` | 16 |
 | `__ARM_NEON` | 16 |
 | `__ARM_FEATURE_DSP` | 16 |
 | `otherwise` | 4 |
@@ -176,9 +176,10 @@ Return a human-readable string for a memory error code.
 
 ## Model interface
 
-A plan executes on one dtype, which is not always the dtype the model file
-declares at its boundary: an ONNX graph states float32 and quantizes inside
-itself, and the compiler folds that quantization into the boundary tensor. The
+A tensor's stored dtype can differ from the dtype the model file declares at
+its boundary: an ONNX graph can state float32 and quantize inside itself, and
+the compiler folds that quantization into the boundary tensor. An int8 plan
+can also contain float32 sections after Dequantize. The
 plan records the declared dtype per model input and output, and these calls
 move data across the boundary, so an application hands over and reads back
 exactly what the model declares.
@@ -354,9 +355,11 @@ the first run and resets it after any number of runs. Returns
 uint8_t tigris_plan_data_dtype(const tigris_plan_t *plan);
 ```
 
-The dtype a loaded plan computes in: int8 (3) when any activation is int8, else
-float32 (1). Float32 tensors in an int8 plan occur only where an operator's dtype
-signature states them, which loading checks.
+The plan's default dispatch dtype: int8 (3) when any activation is int8, else
+float32 (1). The int8 dispatcher routes float32 section operators to the float
+reference kernels. The loader checks that float32 sections follow a typed
+conversion or control-flow boundary. Other typed float outputs, such as
+detection results, follow their operator's signature.
 
 ### tigris_executor_workspace_size
 
@@ -440,7 +443,8 @@ int tigris_dispatch_kernel_esp_nn(
 workspace through the platform allocator during initialization. Optional
 workspace failure makes affected operations use the reference backend; the
 function returns -1 for invalid or overflowing metadata or an unavailable
-mandatory depthwise-output buffer.
+mandatory depthwise-output buffer, and -2 for misaligned Conv or depthwise
+weights.
 `tigris_esp_nn_deinit()` releases that process-global adapter workspace after
 the last inference. Preparation and dispatch are not concurrently re-entrant.
 
@@ -582,6 +586,14 @@ typedef struct {
     uint8_t     *slow_base;
     uint32_t     slow_size;
     uint32_t     slow_used;
+    uint32_t     slow_peak;
+    struct tigris_exec_stats *stats;
+#ifdef TIGRIS_TRACE
+    tigris_trace_fn trace_fn;
+    void *trace_ctx;
+    uint16_t trace_stage;
+    uint8_t trace_path;
+#endif
     tigris_tile_ctx_t tile;
 } tigris_mem_t;
 ```
@@ -684,6 +696,10 @@ path: normal, tiled, chained and control flow.
 | -7 | `TIGRIS_EXEC_ERR_STATE` | Plan keeps state and no state buffer, or too small a one, was given |
 
 ## Op Types
+
+The first opcode assignments are shown below. The full enum is declared in
+`tigris.h`; the [operator table](/runtime/operator-support/) lists executable
+routes.
 
 ```c
 typedef enum {

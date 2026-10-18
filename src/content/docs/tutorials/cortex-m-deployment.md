@@ -5,7 +5,7 @@ sidebar:
   order: 100
 ---
 
-This guide takes an INT8 model onto an Arm Cortex-M microcontroller with the
+This guide takes an INT8 model onto an Arm Cortex-M embedded device with the
 CMSIS-NN kernels, from an ONNX file to an inference running on the board and
 printing its output over serial. It uses the
 [`tigris-cortex-m`](https://github.com/raws-labs/tigris-cortex-m) target-support

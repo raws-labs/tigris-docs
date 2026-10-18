@@ -9,7 +9,7 @@ Tiling is TiGrIS's core technique for fitting large models into small SRAM. A Co
 
 ## Why tiling
 
-A 96x96 feature map with 64 channels occupies 576 KB in int8, already larger than the total SRAM on most Cortex-M and ESP32 targets. Without tiling, the entire feature map must be live in SRAM simultaneously. With tiling, only a strip of height `tile_h + halo` needs to be resident.
+A 96x96 feature map with 64 channels occupies 576 KiB in int8, already larger than the total SRAM on most Cortex-M and ESP32 targets. Without tiling, the entire feature map must be live in SRAM simultaneously. With tiling, only a strip of height `tile_h + halo` needs to be resident.
 
 The tradeoff: halo rows at tile boundaries are recomputed, adding a small amount of redundant work. In practice the overhead is low, typically under 5% for models with moderate receptive fields.
 
@@ -82,17 +82,20 @@ Chain tiling gives the lowest spill overhead. For deep networks where many stage
 
 A stage tiles when every operator in it supports the same way of cutting its
 tensors. Operators the compiler has not audited for a tiling contract run whole,
-so their stage needs its inputs and outputs in fast memory at once.
+so their stage needs its inputs and outputs in fast memory at once. These rules
+also apply to float32 operators inside int8 plans, with each tensor's own element
+size included in the memory bound.
 
 | How it tiles | Operators | Notes |
 |---|---|---|
-| Height, or height and width, with a halo | Conv, Conv1D, DepthwiseConv, ConvTranspose, MaxPool, AveragePool, L2Pool | Contribute to the receptive field; a wide layer tiles in both height and width |
-| With the tile, no halo | Add, Sub, Mul, Div, Max, Min, activations (Relu, Relu6, Sigmoid, Tanh, HardSwish, LeakyRelu, PRelu, Elu), elementwise math (Exp, Log, Sqrt, Abs, Floor and the rest), comparisons, logic, Where, Cast, Concat along the channel axis | Shape-preserving |
+| Height, or height and width, with a halo | Conv, Conv1D, DepthwiseConv, MaxPool, AveragePool, L2Pool | Contribute to the receptive field; a wide rank-4 layer can tile in both height and width |
+| Height and width of the expanded output | ConvTranspose | One ConvTranspose with optional unary pointwise operators; excluded from chains |
+| With the tile, no halo | Add, Sub, Mul, Div, Max, Min, activations (Relu, Relu6, Sigmoid, Tanh, HardSwish, Gelu, LeakyRelu, PRelu, Elu), Quantize, Dequantize, elementwise math (Exp, Log, Sqrt, Abs, Floor and the rest), comparisons, logic, Where, Cast, Concat along the channel axis | Shape-preserving; int32 arithmetic, comparisons and casts run whole |
 | With the tile, whole rows | Softmax, LogSoftmax, L2Normalization, LayerNormalization | They normalize along the last stored axis, which no tile cuts |
-| Height bands of the output | Resize | On its own stage; the source band is found by dividing |
+| Height bands of the output | Resize, ResizeLinear | One resize with compatible pointwise operators; the source band follows the resampling coordinates |
 | Bands of input rows, accumulated | GlobalAveragePool | One partial sum per channel is carried between bands; below one row, groups of channels over runs of positions |
 | Bands of matrix rows | Gemm, MatMul, Reshape, Flatten, with elementwise operators | The second operand of a matrix product is read whole |
-| Bands along an independent axis | ReduceMean, ReduceMax, ReduceMin, ReduceSum, ReduceAll, CumSum, ArgMax, ArgMin, Gather, GatherND, EmbeddingLookup, StridedSlice, Pad, MirrorPad, ReverseV2, DynamicUpdateSlice, Split, Concat, Transpose, broadcasting binary operators | Along an axis the operator does not reduce, index, reverse or move; none for indices computed at run time |
+| Bands along an independent axis | ReduceMean, ReduceMax, ReduceMin, ReduceSum, ReduceAll, CumSum, ArgMax, ArgMin, Gather, GatherND, EmbeddingLookup, StridedSlice, Pad, MirrorPad, ReverseV2, DynamicUpdateSlice, Split, Concat, Transpose, broadcasting binary operators | Along an axis the operator does not reduce, index, reverse or move; a constant table can tile independent batches of runtime indices |
 | Bands of a reshape | Reshape | When each band of input rows maps onto whole output rows |
 | Whole | TFLite_Detection_PostProcess, SVDF and LSTM beyond their batch axis | The stage needs its inputs and outputs at once |
 
@@ -107,13 +110,13 @@ The receptive field determines how many input rows are needed to produce one out
 
 ### Calculation
 
-Walk spatial ops in reverse execution order, accumulating the receptive field:
+Walk spatial ops in execution order, accumulating the receptive field:
 
 ```
 RF = 1
 cumulative_stride = 1
 
-for each spatial op in reverse order:
+for each spatial op in execution order:
     eff_kernel = kernel_h + (kernel_h - 1) * (dilation_h - 1)
     RF = RF + (eff_kernel - 1) * cumulative_stride
     cumulative_stride = cumulative_stride * stride_h
@@ -182,7 +185,7 @@ Chains are extended greedily: if Stage N+2 also qualifies, it joins the chain.
 Starting from the last stage's output tile height, the compiler walks backward through the chain. Each spatial op's kernel, stride, and dilation determine the required input tile height:
 
 ```
-input_tile_h = output_tile_h * stride + (kernel - 1) * dilation
+input_tile_h = output_tile_h * stride + max((kernel - 1) * dilation + 1 - stride, 0)
 ```
 
 All intermediate tile sizes are computed this way.

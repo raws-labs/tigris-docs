@@ -32,7 +32,7 @@ Inter-stage tensor storage, needed by any multi-stage plan. Usually external PSR
 
 ### Flash (read-only, XIP)
 
-Model weights are stored in flash and can be accessed via execute-in-place (XIP) memory mapping. With `--xip` on an uncompressed plan, the runtime reads weights directly from their flash addresses instead of copying the full weight blob to RAM. With weight compression enabled, stage weight blocks are still stored in flash but are decompressed into the fast arena as each stage runs.
+The runtime reads uncompressed weights directly from the loaded plan buffer. Placing that buffer in memory-mapped flash keeps weights out of RAM. `--xip` marks that deployment choice; it does not map flash or change the runtime's zero-copy weight access. Compressed stage weight blocks are decompressed into the fast arena as each stage runs.
 
 ```bash
 tigris compile model.onnx -m 256K -f 4M --xip -o model.tgrs
@@ -111,7 +111,7 @@ Tensor addresses are aligned to `TIGRIS_TENSOR_ALIGN` bytes. The value is auto-d
 
 | Architecture | TIGRIS_TENSOR_ALIGN | Notes |
 |---|---|---|
-| Xtensa (ESP32-S3) | 8 bytes | Matches `ee.vld.l.64.ip` load alignment |
+| Xtensa (ESP32-S3) | 16 bytes | ESP-NN reads and writes 16-byte vectors |
 | AArch64 (Cortex-A, RPi) | 16 bytes | NEON 128-bit vector alignment |
 | x86_64 | 32 bytes | AVX2 256-bit vector alignment |
 | Arm Cortex-M with DSP (`__ARM_FEATURE_DSP`) | 16 bytes | CMSIS-NN DSP kernels and wide loads |

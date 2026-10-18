@@ -25,8 +25,13 @@ ONNX Runtime.
 **Static quantization.** Scales and zero points have to be in the file, because
 the plan is built ahead of time and the arena is sized from them.
 
-**A fully quantized graph.** A plan executes on one dtype, so an operator the
-quantizer skipped leaves the graph mixed and the compiler refuses it.
+**Explicit float sections.** Supported float32 operators after a
+`DequantizeLinear` can run inside an int8 plan, ending at a `QuantizeLinear`
+or a float model output. Their activations take four bytes per element.
+A binary operator with a uniform constant can stay int8 when followed by
+quantization.
+
+**Runtime support.** Runtime 0.11.x refuses a plan with float sections.
 
 Nothing else. Activations stated as uint8, which the ONNX Runtime quantizer
 emits by default, are handled: uint8 value `v` and int8 value `v - 128` denote
@@ -78,9 +83,9 @@ tigris analyze model.int8.onnx -m 64K
 
 ```text
 warning: input axis 0 (batch_size) is unset; using 1 (--input-shape overrides)
-mobilenetv2-int8.onnx   int8, 65 operators
+mobilenetv2-int8.onnx   int8, 67 operators
   input    input    1x3x224x224 float32, stored as int8 at scale 0.0186584, zero point -14
-  output   output   1x1000 float32, stored as int8 at scale 0.160799, zero point -52
+  output   output   1x1000 float32
 fits 64.00 KiB fast memory, 58 stages, 53 tiled
 
 memory
@@ -88,19 +93,19 @@ memory
   largest tensor     1.15 MiB   1x96x112x112
   this plan         63.00 KiB   1.00 KiB headroom
   slow memory        1.29 MiB
-  slow traffic       5.14 MiB   per inference: 1.83 MiB written, 3.31 MiB read
+  slow traffic       5.07 MiB   per inference: 1.80 MiB written, 3.26 MiB read
   also fits at      32.00 KiB   64 stages, 62 tiled
   also fits at      16.00 KiB   64 stages, 63 tiled
   does not fit at    8.00 KiB
 
 flash
-  plan   3.39 MiB   weights 3.38 MiB, overhead 10.10 KiB
+  plan   3.39 MiB   weights 3.38 MiB, overhead 10.25 KiB
 ```
 
-Note the input and output rows. The model declares float32 at both ends and the
-plan executes on int8, so the runtime converts at the boundary: an application
-hands over and reads back float32 either way. Quantizing does not change the
-interface your code talks to.
+Note the input and output rows. The model declares float32 at both ends.
+The input is stored as int8 and converted at the boundary; the output is a
+float32 section result. An application hands over and reads back float32
+either way. Quantizing does not change the interface your code talks to.
 
 ## Per-channel or per-tensor
 
@@ -130,36 +135,36 @@ onnx.save(version_converter.convert_version(model, 13), "model.opset13.onnx")
 
 ## Settings that do not work, and how they fail
 
-**`QuantFormat.QOperator`** writes `QLinearConv`, `QLinearAdd`, `QGemm` and
-friends instead of QDQ pairs. TiGrIS has none of those operators, and shape
-inference cannot see through them, so the failure arrives as a shape error
-rather than a format one:
+**`QuantFormat.QOperator`** writes integer operators such as `QLinearMatMul`
+instead of QDQ pairs. TiGrIS refuses them with the format named:
 
-```
-Error: Tensor 'output' has unknown rank; TiGrIS requires concrete deployment shapes
-```
-
-If you see that on a model you just quantized, check the format before
-anything else.
-
-**`quantize_dynamic`** computes activation scales at run time, so the file
-carries none. The compiler reports the weight dtype it cannot place:
-
-```
-Error: Cannot compile a plan with unsupported tensor dtypes: unsupported
-activation tensor dtype(s): ONNX dtype 2 (317_quantized, 317_zero_point, ...)
+```text
+cannot compile: 1 unsupported operator
+  quantized_matmul (QLinearMatMul: ONNX QOperator format; TiGrIS ingests QDQ. Re-export with quant_format=QuantFormat.QDQ)
 ```
 
-**A partially quantized graph** fails with both dtypes named:
+**`quantize_dynamic`** computes activation scales at run time. Its
+`DynamicQuantizeLinear` and `MatMulInteger` operators receive the same
+QOperator-format refusal. Use static quantization with QDQ instead.
 
-```
-Error: Cannot compile a plan with unsupported tensor dtypes: mixed activation
-dtypes cannot use a graph-wide runtime dispatcher: float32 (...), int8 (...)
+**A float operator without a kernel** is still refused. For example, a
+`DequantizeLinear` followed by `InstanceNormalization` gives:
+
+```text
+cannot compile: 1 unsupported operator
+  normalize (InstanceNormalization: InstanceNormalization has no kernel in the runtime)
 ```
 
-Read the float32 list. It names the operators the quantizer skipped, which is
-usually an operator it does not support, and the fix is upstream in the
-quantizer rather than in the compiler.
+**Float activations outside a section** still fail dtype validation. A separate
+float input feeding a `Relu`, alongside an int8 path, gives:
+
+```text
+cannot compile: float32 activations in an int8 plan must follow a Dequantize, If or While: float_input, float_output
+```
+
+The list names the float32 tensors no Dequantize, If or While reaches.
+Check those paths rather than requiring the whole model to be int8. `compile`
+ends each refusal with `Error: no plan written` and exits with status 1.
 
 ## Check the result
 
@@ -180,10 +185,10 @@ TiGrIS vs ONNX Runtime int8    : max  6.0 LSB, mean  5.0 LSB
 ONNX Runtime int8 vs float     : max 17.5 LSB, mean 13.8 LSB
 ```
 
-A few LSB between TiGrIS and ONNX Runtime is expected and is not drift. Both
-requantize with integer arithmetic but break rounding ties differently, and a
-one-LSB difference early in a network is amplified by any later layer whose
-effective scale is large.
+Rounding ties can differ between TiGrIS's fixed-point kernels and ONNX Runtime's
+QDQ evaluation. A one-LSB difference early in a network can be amplified by a
+later layer whose effective scale is large. A float section can carry that
+upstream difference into a float output.
 
 If the third comparison is large while the second is small, that is a compiler
 problem and worth reporting. If the second is large, the model needs better

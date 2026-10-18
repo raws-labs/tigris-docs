@@ -38,19 +38,20 @@ const accelBackends = ["esp-nn", "cmsis-nn"] as const;
     <table>
       <caption>Executable operators after graph normalization</caption>
       <thead>
-        <tr><th>Operator</th><th>Portable C</th><th>ESP-NN</th><th>CMSIS-NN</th></tr>
+        <tr><th>Operator</th><th>Portable C</th><th>ESP-NN (int8)</th><th>CMSIS-NN (int8)</th></tr>
       </thead>
       <tbody>
         {supported.map((op: any) => (
           <tr>
             <th scope="row"><code>{op.operator}</code></th>
-            <td>Float32 + int8</td>
+            <td>{op.routes?.reference !== "unsupported" && op.routes?.s8_ref !== "unsupported"
+              ? "Float32 + int8" : op.routes?.reference !== "unsupported" ? "Float32" : "Int8"}</td>
             {accelBackends.map((b) => {
               const route = op.routes?.[b];
               const cond = op.conditional_fallbacks?.[b];
               return (
                 <td title={cond ?? undefined}>
-                  {route === "native" ? `Native${cond ? "*" : ""}` : "Portable fallback"}
+                  {route === "native" ? `Native${cond ? "*" : ""}` : route === "unsupported" ? "Unsupported" : "Portable fallback"}
                 </td>
               );
             })}

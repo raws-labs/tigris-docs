@@ -144,7 +144,7 @@ if (eerr != TIGRIS_EXEC_OK) {
 }
 ```
 
-Pass the dispatch function for your chosen backend. The `user_ctx` parameter (NULL above) is forwarded to every kernel call.
+Pass the dispatch function for your chosen backend. The int8 and accelerated dispatchers route float section operators to the portable float kernels. The `user_ctx` parameter (NULL above) is forwarded to every kernel call.
 
 Provide one workspace for each inference that may run concurrently. Static
 storage is appropriate for a single inference task; separate tasks or model
@@ -227,7 +227,7 @@ Model outputs are located in the slow buffer after inference completes.
 
 ## Complete example
 
-Minimal POSIX integration that loads a plan from file, runs inference, and prints first output values. This example uses the int8 reference backend; for f32, replace `tigris_dispatch_kernel_s8` with `tigris_dispatch_kernel`:
+Minimal POSIX integration that loads a plan from file, runs inference, and prints first output values. This example expects stored int8 inputs and outputs and uses the int8 reference backend. A float section output is stored as float32; check each tensor's dtype before casting it, or use `tigris_output_read()`. For a float32 plan, replace `tigris_dispatch_kernel_s8` with `tigris_dispatch_kernel`:
 
 ```c
 #define _POSIX_C_SOURCE 200112L
