@@ -72,7 +72,7 @@ tigris compile model.onnx -m 232K -m 8M -o model.tgrs
 | Flag | Meaning |
 |------|---------|
 | `-m 232K -m 8M` | Memory pools, fast to slow: internal SRAM then PSRAM. The compiler places and tiles tensors across them. |
-| `--xip` | Optional. Execute-in-place: weights are read from flash at runtime instead of held in the arena. |
+| `--xip` | Optional. Marks execute-in-place deployment; uncompressed weights are read from the plan buffer, which the application places in flash. |
 | `-o model.tgrs` | Output path for the binary plan. |
 
 PSRAM (the second `-m` tier) is what lets multi-stage models fit. Without it,

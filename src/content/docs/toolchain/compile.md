@@ -47,7 +47,7 @@ memory
   TFLite Micro tensors   72.00 KiB   its planner; kernel scratch excluded
   unscheduled            54.00 KiB
   largest tensor         36.00 KiB   1x48x48x16
-  this plan              29.34 KiB   2.66 KiB headroom
+  this plan              28.22 KiB   3.78 KiB headroom
   slow memory            45.00 KiB   budget 1.00 MiB
 
 flash
@@ -97,9 +97,10 @@ there.
 
 ## Execute in place
 
-With `--xip`, the runtime reads an uncompressed plan's weights directly from
-memory-mapped flash instead of copying them to RAM, so RAM holds only activations
-and scratch. Flash reads are slower than SRAM reads; how much that costs depends
+`--xip` marks an execute-in-place deployment. The runtime reads uncompressed
+weights directly from the loaded plan buffer; the application must place that
+buffer in memory-mapped flash to keep the weights out of RAM. The flag does not
+map flash or select a weight-copying path. Flash reads are slower than SRAM reads; how much that costs depends
 on the device's flash cache and the model's access pattern. `--xip` does not
 change the schedule or the plan's size.
 

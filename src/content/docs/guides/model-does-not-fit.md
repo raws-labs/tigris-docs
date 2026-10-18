@@ -131,10 +131,10 @@ retrain or re-export.
 
 ## Levers that do not move it
 
-**`--xip`** does not change the plan's size or the floor. It sets a flag that
-tells the runtime to read weights in place from flash instead of copying them
-into RAM, which matters for the arena the application owns, not for what the
-compiler schedules.
+**`--xip`** does not change the plan's size or the floor. It marks an
+execute-in-place deployment; the runtime reads uncompressed weights from the
+loaded plan buffer with or without the flag. The application must place that
+buffer in memory-mapped flash to keep weights out of RAM.
 
 **`-c lz4`** rarely pays on a model of this shape. Compressed weights are
 decompressed one stage at a time into a reservation carved out of the fast
@@ -161,9 +161,9 @@ tigris analyze mobilenetv2-int8.onnx -m 64K
 
 ```text
 warning: input axis 0 (batch_size) is unset; using 1 (--input-shape overrides)
-mobilenetv2-int8.onnx   int8, 65 operators
+mobilenetv2-int8.onnx   int8, 67 operators
   input    input    1x3x224x224 float32, stored as int8 at scale 0.0186584, zero point -14
-  output   output   1x1000 float32, stored as int8 at scale 0.160799, zero point -52
+  output   output   1x1000 float32
 fits 64.00 KiB fast memory, 58 stages, 53 tiled
 
 memory
@@ -171,19 +171,19 @@ memory
   largest tensor     1.15 MiB   1x96x112x112
   this plan         63.00 KiB   1.00 KiB headroom
   slow memory        1.29 MiB
-  slow traffic       5.06 MiB   per inference: 1.80 MiB written, 3.26 MiB read
+  slow traffic       5.07 MiB   per inference: 1.80 MiB written, 3.26 MiB read
   also fits at      32.00 KiB   64 stages, 62 tiled
   also fits at      16.00 KiB   64 stages, 63 tiled
   does not fit at    8.00 KiB
 
 flash
-  plan   3.39 MiB   weights 3.38 MiB, overhead 10.11 KiB
+  plan   3.39 MiB   weights 3.38 MiB, overhead 10.25 KiB
 ```
 
-The input and output rows are the plan's contract. The model declares float32 at both
-ends while the plan executes on int8, so the report names the declared dtype and the
-encoding it is stored in. The runtime converts across that boundary, so an application
-hands over and reads back float32.
+The input and output rows are the plan's contract. The model declares float32
+at both ends. Its input is stored as int8 and converted at the boundary; its
+output is produced by a float32 section. An application hands over and reads
+back float32.
 
 Read the trace before calling it done. `tigris analyze mobilenetv2-int8.onnx -m 64K
 --trace` runs the plan on the host runtime and reports, per stage, the bytes it reads

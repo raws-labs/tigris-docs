@@ -14,7 +14,8 @@ the model or plan format.
 For initial integration and host testing, use `reference`. For an int8 deployment,
 select `esp-nn` on ESP32-S3 or `cmsis-nn` on Cortex-M. Both accelerated backends
 fall back to TiGrIS's portable int8 kernels when a vendor kernel cannot preserve
-the plan's semantics.
+the plan's semantics. Float32 operators inside an int8 plan use the portable
+float kernels on either backend.
 
 ## At a glance
 
@@ -32,7 +33,9 @@ explicitly uses the portable float implementation.
 The table covers the plan operators that remain after TiGrIS normalizes an
 ONNX graph or converts a TFLite model; TFLite operator names and their limits
 are in [Compiling a TFLite Model](/guides/tflite-models/). **Native** means the vendor library is normally used. **Portable
-fallback** remains supported but does not receive vendor acceleration.
+fallback** remains supported but does not receive vendor acceleration. The
+ESP-NN and CMSIS-NN columns describe int8 routes; float sections use the
+portable float32 route.
 
 <CapabilityMatrix mode="matrix" />
 

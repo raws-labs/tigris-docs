@@ -39,12 +39,13 @@ TiGrIS manages three distinct memory regions:
 | **PSRAM** | Slow | Megabytes | Spill/reload between stages |
 | **Flash** | Read-only | Megabytes | Weights (XIP), plan metadata |
 
-The `-m` flag sets the SRAM activation budget used by the compiler's schedule
-and tiling checks. The application must additionally account for compressed
-weight workspace, backend scratch, alignment, and the required slow-buffer
-capacity. For multi-stage models, PSRAM is required because intermediate
-tensors spill there between stages. Pass a second `-m` value to set the PSRAM
-budget. Models that fit in a single stage can run with SRAM only.
+The `-m` flag bounds the fast arena used by the compiler's schedule and tiling
+checks, including any compressed-weight reservation. The application also
+accounts for backend scratch, alignment, and the required slow-buffer capacity.
+Multi-stage models need writable slow storage for intermediate tensors, such as
+PSRAM or another SRAM bank. Pass a second `-m` value to bound that pool.
+A single-stage model can use SRAM for both its working set and its input and
+output storage.
 
 ## Stages
 
@@ -73,7 +74,7 @@ For implementation details and formulas, see [Tiling](/architecture/tiling/).
 
 ## XIP (Execute in Place)
 
-With `--xip` on an uncompressed plan, weights stay in flash and are read via memory-mapped I/O at inference time instead of being copied wholesale to SRAM. If weight compression is enabled, each stage's compressed weights are stored in flash and decompressed into the fast arena as that stage runs.
+`--xip` marks weights for execute-in-place deployment. The runtime reads uncompressed weights from the loaded plan buffer, so placing that buffer in memory-mapped flash keeps the weights out of SRAM. The flag does not map flash or copy weights; the application owns plan placement. Compressed weights are decompressed into the fast arena as each stage runs.
 
 This is critical for larger models whose weights alone would exceed the SRAM budget. With XIP, SRAM is reserved exclusively for activations and scratch buffers.
 
@@ -85,7 +86,7 @@ The execution plan specifies *what* to compute (operator type, tensor shapes, qu
 
 | Backend | Target | Notes |
 |---------|--------|-------|
-| `reference` | Any | Portable C99. Correct but slow. Handles both float32 and int8 models. |
+| `reference` | Any | Portable C. Correct but slow. Handles both float32 and int8 models. |
 | `cmsis-nn` | Arm Cortex-M | Arm's optimized kernels for Cortex-M family (DSP on M4/M7, Helium on M55, plain C fallback elsewhere). |
 | `esp-nn` | ESP32 family | Espressif's optimized int8 kernels for the ESP32 family. |
 
@@ -97,7 +98,7 @@ kernels, from the same plan
 
 ## Quantization
 
-TiGrIS handles both float32 and int8 quantized models. An int8 TFLite model is read with the quantization the converter wrote. For an ONNX model, the compiler folds QDQ (QuantizeLinear / DequantizeLinear) nodes at compile time, precomputing the fixed-point multipliers and right-shift values each operator needs. Activations stated as uint8, which is what an ONNX quantizer emits by default, are restated as int8 at compile time; that is exact, since the zero point moves by the same 128. A plan runs on one dtype throughout, but the interface it presents is the one the model file declares: the plan records that dtype per input and output, and `tigris_input_write()` and `tigris_output_read()` convert across the boundary. Hand over and read back exactly what the model file states, whatever encoding the plan executes on.
+TiGrIS handles both float32 and int8 quantized models. An int8 TFLite model is read with the quantization the converter wrote. For an ONNX model, the compiler folds QDQ (QuantizeLinear / DequantizeLinear) nodes at compile time, precomputing the fixed-point multipliers and right-shift values each operator needs. Activations stated as uint8, which is what an ONNX quantizer emits by default, are restated as int8 at compile time; that is exact, since the zero point moves by the same 128. An int8 plan can include float32 operators after Dequantize, up to Quantize or a float model output. The interface it presents is the one the model file declares: the plan records that dtype per input and output, and `tigris_input_write()` and `tigris_output_read()` convert across the boundary. Hand over and read back exactly what the model file states, whatever encoding the plan executes on.
 Both symmetric and asymmetric quantization are supported. Quantize your model with any standard tool and TiGrIS handles the rest.
 
 Int8 is recommended for embedded deployment: it cuts memory by 4x and unlocks SIMD kernel backends (ESP-NN, CMSIS-NN) that only support integer arithmetic.

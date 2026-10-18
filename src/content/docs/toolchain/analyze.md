@@ -47,7 +47,7 @@ memory
   TFLite Micro tensors    72.00 KiB   its planner; kernel scratch excluded
   unscheduled             54.00 KiB
   largest tensor          36.00 KiB   1x48x48x16
-  this plan               29.34 KiB   2.66 KiB headroom
+  this plan               28.22 KiB   3.78 KiB headroom
   slow memory             45.00 KiB   budget 1.00 MiB
   slow traffic           109.13 KiB   per inference: 18.00 KiB written, 91.12 KiB read
   also fits at            16.00 KiB   12 stages, 11 tiled
@@ -69,7 +69,7 @@ caller hands over, and the verdict:
 | `fits <budget> fast memory, N stages, K tiled` | A plan can be compiled. A stage counts as tiled when it runs in tiles or as part of a chain. |
 | `fits <budget> fast memory; slow memory X needed, Y given` | The fast memory is enough, the second `-m` is not. |
 | `does not fit <budget> fast memory: N stages exceed it` | One line per stage follows, largest first, with the fast memory it still needs and why it cannot shrink. |
-| `cannot compile: N unsupported operators` | The operators follow; [`inspect`](/toolchain/inspect/) gives the reason for each. |
+| `cannot compile: N unsupported operators` | The operators and reasons follow; `--json` lists all of them. |
 | `no budget given; memory figures only` | No `-m` was given. |
 
 A stage that does not fit names its reason:
@@ -155,10 +155,10 @@ tigris analyze vww_96_int8.tflite -m 32K -m 1M --trace
 ```text
 vww_96_int8.tflite   traced on runtime 0.12.0, host reference backend, zero input
   moved       18.00 KiB written, 91.12 KiB read
-  fast peak   29.34 KiB of 32.00 KiB
+  fast peak   28.22 KiB of 32.00 KiB
 
 stage   kind      tiles        read     written   fast peak   slow used
-    0   chain 7      12   73.12 KiB   18.00 KiB   29.34 KiB   45.00 KiB
+    0   chain 7      12   73.12 KiB   18.00 KiB   28.22 KiB   45.00 KiB
     7   untiled           18.00 KiB         2 B   22.50 KiB   18.03 KiB
 
 272 events; their bytes equal the runtime's own counters. Host alignment is 32 bytes; a target with less uses at most these bytes.
