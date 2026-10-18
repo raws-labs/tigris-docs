@@ -1,0 +1,1223 @@
+{
+  "artifact_format": 1,
+  "codegen_selections": [
+    {
+      "codegen_backend": "reference",
+      "description": "reference",
+      "dtype": "float32",
+      "kernel_backend": "reference"
+    },
+    {
+      "codegen_backend": "reference",
+      "description": "s8_ref",
+      "dtype": "int8",
+      "kernel_backend": "s8_ref"
+    },
+    {
+      "codegen_backend": "esp-nn",
+      "description": "reference (explicit float32 fallback; esp-nn acceleration is int8-only)",
+      "dtype": "float32",
+      "kernel_backend": "reference"
+    },
+    {
+      "codegen_backend": "esp-nn",
+      "description": "esp-nn -> s8_ref fallback",
+      "dtype": "int8",
+      "kernel_backend": "esp-nn"
+    },
+    {
+      "codegen_backend": "cmsis-nn",
+      "description": "reference (explicit float32 fallback; cmsis-nn acceleration is int8-only)",
+      "dtype": "float32",
+      "kernel_backend": "reference"
+    },
+    {
+      "codegen_backend": "cmsis-nn",
+      "description": "cmsis-nn -> s8_ref fallback",
+      "dtype": "int8",
+      "kernel_backend": "cmsis-nn"
+    }
+  ],
+  "kernel_backends": [
+    {
+      "dtype": "float32",
+      "fallback": null,
+      "name": "reference"
+    },
+    {
+      "dtype": "int8",
+      "fallback": null,
+      "name": "s8_ref"
+    },
+    {
+      "dtype": "int8",
+      "fallback": "s8_ref",
+      "name": "esp-nn"
+    },
+    {
+      "dtype": "int8",
+      "fallback": "s8_ref",
+      "name": "cmsis-nn"
+    }
+  ],
+  "legend": {
+    "fallback:<backend>": "executed by the named explicit fallback backend",
+    "native": "implemented by this kernel backend",
+    "unsupported": "no executable route; code generation rejects the plan"
+  },
+  "operators": [
+    {
+      "conditional_fallbacks": {
+        "cmsis-nn": "falls back for dilation other than 1",
+        "esp-nn": "falls back for dilation other than 1; asymmetric padding falls back when its preparation-time workspace is insufficient"
+      },
+      "opcode": 1,
+      "operator": "Conv",
+      "routes": {
+        "cmsis-nn": "native",
+        "esp-nn": "native",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "conditional_fallbacks": {
+        "cmsis-nn": "falls back for tiled dilation other than 1; channel multipliers fall back with CMSIS_NN_USE_SINGLE_ROUNDING",
+        "esp-nn": "falls back for dilation other than 1; channel multipliers require batch 1"
+      },
+      "constraints": [
+        "one group per input channel with a channel multiplier"
+      ],
+      "opcode": 2,
+      "operator": "DepthwiseConv",
+      "routes": {
+        "cmsis-nn": "native",
+        "esp-nn": "native",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "rank-3 pointwise length tiling on serialized axis 1"
+      ],
+      "opcode": 3,
+      "operator": "Relu",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "rank-3 pointwise length tiling on serialized axis 1"
+      ],
+      "opcode": 4,
+      "operator": "Relu6",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "explicit or auto_pad padding, floor or ceil output sizing, unit dilation, and no indices output"
+      ],
+      "opcode": 5,
+      "operator": "MaxPool",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "conditional_fallbacks": {
+        "cmsis-nn": "falls back when tiled or when input/output quantization differs",
+        "esp-nn": "falls back when tiled or when input/output quantization differs"
+      },
+      "constraints": [
+        "explicit or auto_pad padding, floor or ceil output sizing, unit dilation, and count_include_pad=0 wherever padding is non-zero"
+      ],
+      "opcode": 6,
+      "operator": "AveragePool",
+      "routes": {
+        "cmsis-nn": "native",
+        "esp-nn": "native",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "each operand has the output's shape or broadcasts to it, a tensor operand at the output's rank; tiled only when every operand is dense, a repeating constant, or one value per channel as the second operand; a constant operand, on either side, float or per-tensor int8; one per element runs untiled",
+        "standalone rank-3 pointwise length tiling on serialized axis 1",
+        "int32 operands and result together, wrapping on overflow, untiled and without an activation"
+      ],
+      "opcode": 7,
+      "operator": "Add",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "conditional_fallbacks": {
+        "cmsis-nn": "falls back for constants, broadcasting, non-per-tensor quantization, requantization shifts outside [-31, 15], width, row or rolled tiles, or CMSIS_NN_USE_SINGLE_ROUNDING",
+        "esp-nn": "falls back for constants, broadcasting, non-per-tensor quantization, requantization shifts outside [-31, 15], or width, row or rolled tiles"
+      },
+      "constraints": [
+        "each operand has the output's shape or broadcasts to it, a tensor operand at the output's rank; tiled only when every operand is dense, a repeating constant, or one value per channel as the second operand; a constant operand, on either side, float or per-tensor int8; one per element runs untiled",
+        "standalone rank-3 pointwise length tiling on serialized axis 1",
+        "int32 operands and result together, wrapping on overflow, untiled and without an activation"
+      ],
+      "opcode": 8,
+      "operator": "Mul",
+      "routes": {
+        "cmsis-nn": "native",
+        "esp-nn": "native",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "opcode": 9,
+      "operator": "Gemm",
+      "routes": {
+        "cmsis-nn": "native",
+        "esp-nn": "native",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "final axis only; tiling on serialized axis 1, each tile holding whole rows"
+      ],
+      "opcode": 10,
+      "operator": "Softmax",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "opcode": 11,
+      "operator": "Clip",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "unsupported",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "constraints": [
+        "rank-3 pointwise length tiling on serialized axis 1"
+      ],
+      "opcode": 12,
+      "operator": "Sigmoid",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "rank-3 and rank-4 concatenation on any stored axis but the batch axis, tiled only on the last one; a constant part only as the leading operand of a float concatenation on the last stored axis"
+      ],
+      "opcode": 13,
+      "operator": "Concat",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "constant mode with non-negative pads and a constant fill; int8 keeps its quantization; untiled execution"
+      ],
+      "opcode": 14,
+      "operator": "Pad",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "conditional_fallbacks": {
+        "cmsis-nn": "falls back when tiled or when input/output quantization differs"
+      },
+      "constraints": [
+        "rank-4 height tiling: each band of rows is added into the per-channel sums"
+      ],
+      "opcode": 15,
+      "operator": "GlobalAveragePool",
+      "routes": {
+        "cmsis-nn": "native",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "opcode": 16,
+      "operator": "Flatten",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "opcode": 17,
+      "operator": "Reshape",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "each operand has the output's shape or broadcasts to it, a tensor operand at the output's rank; tiled only when every operand is dense, a repeating constant, or one value per channel as the second operand; a constant operand, on either side, float or per-tensor int8; one per element runs untiled",
+        "int32 operands and result together, wrapping on overflow, untiled and without an activation"
+      ],
+      "opcode": 18,
+      "operator": "Sub",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "each operand has the output's shape or broadcasts to it, a tensor operand at the output's rank; tiled only when every operand is dense, a repeating constant, or one value per channel as the second operand; a constant operand, on either side, float or per-tensor int8; one per element runs untiled; int8 requires per-tensor quantization",
+        "int8 rejects zero centered denominators and negative rounding exponents; rounding exponents >= 32 use wide mask/remainder/threshold arithmetic"
+      ],
+      "opcode": 19,
+      "operator": "Div",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "rank-3 pointwise length tiling on serialized axis 1"
+      ],
+      "opcode": 20,
+      "operator": "Tanh",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "opcode": 21,
+      "operator": "LeakyRelu",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "opcode": 22,
+      "operator": "BatchNormalization",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "unsupported",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "opcode": 23,
+      "operator": "InstanceNormalization",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "unsupported",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "opcode": 24,
+      "operator": "ConvTranspose",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "opcode": 25,
+      "operator": "MatMul",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "rank-3 mean over one axis; independent height or row bands. A rank-4 mean over both spatial axes is rewritten to GlobalAveragePool instead"
+      ],
+      "opcode": 26,
+      "operator": "ReduceMean",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "opcode": 27,
+      "operator": "Squeeze",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "unsupported",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "opcode": 28,
+      "operator": "Unsqueeze",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "unsupported",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "constraints": [
+        "a concrete, valid permutation is stored in schema 4+ plans"
+      ],
+      "opcode": 29,
+      "operator": "Transpose",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "rank-4 nearest-neighbor H/W resizing with asymmetric floor, half-pixel centers or align-corners rounding; height tiling as the stage's single spatial op, never in a chain"
+      ],
+      "opcode": 30,
+      "operator": "Resize",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "opcode": 31,
+      "operator": "GlobalMaxPool",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "standalone rank-3 length tiling on serialized axis 1; may compose with shape-preserving unary pointwise operators"
+      ],
+      "opcode": 32,
+      "operator": "Conv1D",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "opcode": 33,
+      "operator": "LayerNormalization",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "opcode": 34,
+      "operator": "Erf",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "parts along any stored axis; untiled execution"
+      ],
+      "opcode": 35,
+      "operator": "Split",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "rank-4 bilinear H/W resizing with half-pixel, asymmetric or align-corners coordinates; height tiling as the stage's single spatial op, never in a chain"
+      ],
+      "opcode": 36,
+      "operator": "ResizeLinear",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "rank-3 pointwise length tiling on serialized axis 1"
+      ],
+      "opcode": 37,
+      "operator": "HardSwish",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "int8 requantization must stay within the 32-bit reference arithmetic domain"
+      ],
+      "opcode": 38,
+      "operator": "Abs",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "int8 requires nonnegative centered inputs and reference shifts in range"
+      ],
+      "opcode": 39,
+      "operator": "Rsqrt",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "each operand has the output's shape or broadcasts to it, a tensor operand at the output's rank; tiled only when every operand is dense, a repeating constant, or one value per channel as the second operand; a constant operand, on either side, float or per-tensor int8; one per element runs untiled",
+        "int8 requantization must stay within the 32-bit reference arithmetic domain"
+      ],
+      "opcode": 40,
+      "operator": "SquaredDifference",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "conditional_fallbacks": {
+        "cmsis-nn": "falls back unless dynamic operands have identical shapes and both inputs and output have equal per-tensor scales and zero points; width, row and rolled tiles fall back"
+      },
+      "constraints": [
+        "each operand has the output's shape or broadcasts to it, a tensor operand at the output's rank; tiled only when every operand is dense, a repeating constant, or one value per channel as the second operand; a constant operand, on either side, float or per-tensor int8; one per element runs untiled; int8 quantization must match"
+      ],
+      "opcode": 41,
+      "operator": "Max",
+      "routes": {
+        "cmsis-nn": "native",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "conditional_fallbacks": {
+        "cmsis-nn": "falls back unless dynamic operands have identical shapes and both inputs and output have equal per-tensor scales and zero points; width, row and rolled tiles fall back"
+      },
+      "constraints": [
+        "each operand has the output's shape or broadcasts to it, a tensor operand at the output's rank; tiled only when every operand is dense, a repeating constant, or one value per channel as the second operand; a constant operand, on either side, float or per-tensor int8; one per element runs untiled; int8 quantization must match"
+      ],
+      "opcode": 42,
+      "operator": "Min",
+      "routes": {
+        "cmsis-nn": "native",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "opcode": 43,
+      "operator": "Neg",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "native",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "opcode": 44,
+      "operator": "Exp",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "native",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "opcode": 45,
+      "operator": "Log",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "native",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "opcode": 46,
+      "operator": "Sqrt",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "native",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "opcode": 47,
+      "operator": "Square",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "native",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "opcode": 48,
+      "operator": "Floor",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "native",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "opcode": 49,
+      "operator": "Ceil",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "native",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "opcode": 50,
+      "operator": "Round",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "native",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "opcode": 51,
+      "operator": "Sin",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "native",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "opcode": 52,
+      "operator": "Cos",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "native",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "constraints": [
+        "each operand has the output's shape or broadcasts to it, a tensor operand at the output's rank; tiled only when every operand is dense, a repeating constant, or one value per channel as the second operand; a constant operand, on either side, float or per-tensor int8; one per element runs untiled; zero denominators are rejected"
+      ],
+      "opcode": 53,
+      "operator": "FloorDiv",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "native",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "constraints": [
+        "each operand has the output's shape or broadcasts to it, a tensor operand at the output's rank; tiled only when every operand is dense, a repeating constant, or one value per channel as the second operand; a constant operand, on either side, float or per-tensor int8; one per element runs untiled"
+      ],
+      "opcode": 54,
+      "operator": "FloorMod",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "native",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "constraints": [
+        "constant broadcast alpha, rank at most 4; each operand has the output's shape or broadcasts to it, a tensor operand at the output's rank; tiled only when every operand is dense, a repeating constant, or one value per channel as the second operand"
+      ],
+      "opcode": 55,
+      "operator": "PRelu",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "alpha=1"
+      ],
+      "opcode": 56,
+      "operator": "Elu",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "final stored axis; int8 output scale 1/16 and zero point 127"
+      ],
+      "opcode": 57,
+      "operator": "LogSoftmax",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "final stored axis; int8 output scale 1/128 and zero point 0"
+      ],
+      "opcode": 58,
+      "operator": "L2Normalization",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "float32 square root of the mean of valid squared samples"
+      ],
+      "opcode": 59,
+      "operator": "L2Pool",
+      "routes": {
+        "cmsis-nn": "unsupported",
+        "esp-nn": "unsupported",
+        "reference": "native",
+        "s8_ref": "unsupported"
+      }
+    },
+    {
+      "constraints": [
+        "one axis of a rank-3 tensor; independent height or row bands; rank-4 spatial max with keepdims uses GlobalMaxPool; int8 quantization must match"
+      ],
+      "opcode": 60,
+      "operator": "ReduceMax",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "one axis of a rank-3 tensor; independent height or row bands; int8 quantization must match"
+      ],
+      "opcode": 61,
+      "operator": "ReduceMin",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "one axis of a rank-3 tensor; independent height or row bands; int8 rejects reference arithmetic overflow"
+      ],
+      "opcode": 62,
+      "operator": "ReduceSum",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "one axis of a rank-3 tensor; independent height or row bands; exclusive and reverse; int8 input zero point 0"
+      ],
+      "opcode": 63,
+      "operator": "CumSum",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "one axis of a tensor of rank 1 to 6; independent height or row bands; int32 indices in model outputs or index operands; first index wins ties"
+      ],
+      "opcode": 64,
+      "operator": "ArgMax",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "one axis of a tensor of rank 1 to 6; independent height or row bands; int32 indices in model outputs or index operands; first index wins ties"
+      ],
+      "opcode": 65,
+      "operator": "ArgMin",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "constant or runtime int32 indices; independent bands with constant indices; identical int8 quantization"
+      ],
+      "opcode": 66,
+      "operator": "Gather",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "constant or runtime int32 indices; independent bands with constant indices; identical int8 quantization"
+      ],
+      "opcode": 67,
+      "operator": "GatherND",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "constant indices or bounds; bands along an unchanged axis; identical int8 quantization"
+      ],
+      "opcode": 68,
+      "operator": "StridedSlice",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "constant indices or bounds; bands along an unchanged axis; identical int8 quantization"
+      ],
+      "opcode": 69,
+      "operator": "MirrorPad",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "constant indices or bounds; bands along an unchanged axis; identical int8 quantization"
+      ],
+      "opcode": 70,
+      "operator": "ReverseV2",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "constant or runtime int32 indices; independent bands with constant indices; identical int8 quantization"
+      ],
+      "opcode": 71,
+      "operator": "EmbeddingLookup",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "constant or runtime int32 starts, clamped to the update domain; bands require constant starts and a dynamic update spanning the band axis; identical int8 quantization"
+      ],
+      "opcode": 72,
+      "operator": "DynamicUpdateSlice",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "data or int32 inputs, bool output; broadcasting and one constant operand; int8 input scales strictly between 0 and 1"
+      ],
+      "opcode": 73,
+      "operator": "Equal",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "data or int32 inputs, bool output; broadcasting and one constant operand; int8 input scales strictly between 0 and 1"
+      ],
+      "opcode": 74,
+      "operator": "Less",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "data or int32 inputs, bool output; broadcasting and one constant operand; int8 input scales strictly between 0 and 1"
+      ],
+      "opcode": 75,
+      "operator": "LessOrEqual",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "data or int32 inputs, bool output; broadcasting and one constant operand; int8 input scales strictly between 0 and 1"
+      ],
+      "opcode": 76,
+      "operator": "Greater",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "data or int32 inputs, bool output; broadcasting and one constant operand; int8 input scales strictly between 0 and 1"
+      ],
+      "opcode": 77,
+      "operator": "GreaterOrEqual",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "bool inputs and output; broadcasting and one constant operand"
+      ],
+      "opcode": 78,
+      "operator": "And",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "bool inputs and output; broadcasting and one constant operand"
+      ],
+      "opcode": 79,
+      "operator": "Or",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "one dynamic bool input and bool output"
+      ],
+      "opcode": 80,
+      "operator": "Not",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "bool condition and data branches; three-operand broadcasting through rank 5; at most one constant; int8 branches and output share quantization"
+      ],
+      "opcode": 81,
+      "operator": "Where",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "dynamic bool to float32, or to int8 quantizing 0 and 1 into the output encoding; int32 to float32"
+      ],
+      "opcode": 82,
+      "operator": "Cast",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "equal-shaped dynamic data inputs; int8 input quantization must match, with all partial sums proven within int32"
+      ],
+      "opcode": 83,
+      "operator": "Sum",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "one axis of a rank-3 bool tensor; independent height or row bands"
+      ],
+      "opcode": 84,
+      "operator": "ReduceAll",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "state kept between runs; int8 with int16 state and time weights; untiled"
+      ],
+      "opcode": 85,
+      "operator": "Svdf",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "hidden and cell state kept between runs; every gate, no peepholes, projection or layer normalization; tanh cell activation; int8 with an int16 cell state; untiled"
+      ],
+      "opcode": 86,
+      "operator": "Lstm",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "one bool condition; branches run as their own stages; float32 or int32 operands, also in int8 plans, where the boundary stays float32 between a Dequantize and a Quantize; nests within the runtime's TIGRIS_MAX_SUBGRAPH_DEPTH and TIGRIS_MAX_SUBGRAPHS"
+      ],
+      "opcode": 87,
+      "operator": "If",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "a condition giving one bool and a body, each run as its own stages; float32 or int32 loop variables, also in int8 plans, where the boundary stays float32 between a Dequantize and a Quantize, each from an input or a constant (uncompressed plans); nests within the runtime's TIGRIS_MAX_SUBGRAPH_DEPTH and TIGRIS_MAX_SUBGRAPHS"
+      ],
+      "opcode": 88,
+      "operator": "While",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "SSD center-size box decoding and fast or regular non-max suppression as TFLite Micro runs them; float32 anchors; int8 or float32 encodings and scores; float32 results no operator reads; one class per detection in the fast form; untiled"
+      ],
+      "opcode": 89,
+      "operator": "DetectionPostProcess",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "float32, or int8 in another encoding, to a per-tensor int8 encoding as TFLite Micro's QUANTIZE; float32 only where an int8 plan keeps a control-flow boundary in float32; pointwise"
+      ],
+      "opcode": 90,
+      "operator": "Quantize",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "constraints": [
+        "a per-tensor int8 encoding to float32 as TFLite Micro's DEQUANTIZE; only where an int8 plan keeps a control-flow boundary in float32; pointwise"
+      ],
+      "opcode": 91,
+      "operator": "Dequantize",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    },
+    {
+      "opcode": 92,
+      "operator": "Gelu",
+      "routes": {
+        "cmsis-nn": "fallback:s8_ref",
+        "esp-nn": "fallback:s8_ref",
+        "reference": "native",
+        "s8_ref": "native"
+      }
+    }
+  ],
+  "schema_version": 10,
+  "scope": "post-normalization operator dispatch; model-specific shape, attribute, quantization, memory, and tiling validation still applies",
+  "source": "tigris.capabilities"
+}
