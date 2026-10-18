@@ -23,7 +23,7 @@ tigris codegen PLAN [OPTIONS]
 |------|------|-------------|
 | `PLAN` | path | Compiled `.tgrs` plan |
 | `-b`, `--backend` | `reference`, `cmsis-nn`, `esp-nn` | Kernel backend (default `reference`). The accelerated backends are int8 only; a float32 plan on them gets the reference kernels. |
-| `-o`, `--output` | path | C file to write |
+| `-o`, `--output` | path | C file to write. The plan's kernel selection goes next to it as `<stem>_kernels.h`. |
 | `--format` | `app`, `core` | `app` is a standalone harness (default), `core` is glue for an existing application |
 | `--header` | path | Header for `--format core`; defaults to a sibling `.h` file |
 | `--name` | C identifier | Public-symbol prefix for `--format core` (default `tigris_codegen`) |
@@ -37,10 +37,12 @@ tigris codegen vww.tgrs --backend cmsis-nn -o vww.c
 ```
 
 ```text
-wrote vww.c   app, cmsis-nn backend, 5.25 KiB
+wrote vww.c   app, cmsis-nn backend, 5.25 KiB, kernels vww_kernels.h
 ```
 
 The plan stays a separate file; the generated C loads it at run time.
+`vww_kernels.h` enables only the kernels this plan uses; see
+[Link only the kernels a plan uses](/runtime/integration/#link-only-the-kernels-a-plan-uses).
 
 Portable C99 on the reference kernels, and the ESP32 family with ESP-NN:
 
