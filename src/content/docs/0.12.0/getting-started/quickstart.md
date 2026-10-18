@@ -173,7 +173,7 @@ tigris codegen vww.tgrs --backend cmsis-nn -o vww.c
 ```
 
 ```text
-wrote vww.c   app, cmsis-nn backend, 5.25 KiB
+wrote vww.c   app, cmsis-nn backend, 5.25 KiB, kernels vww_kernels.h
 ```
 
 | Backend | Target |

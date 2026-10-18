@@ -5,11 +5,6 @@ import starlightLlmsTxt from "starlight-llms-txt";
 import starlightLinksValidator from "starlight-links-validator";
 import starlightImageZoom from "starlight-image-zoom";
 import starlightVersions from "starlight-versions";
-// Versioning: re-enable at the FIRST frozen version (the first tigris-ml release
-// we keep docs for). The spike proved starlight-versions works; it just rejects
-// an empty version list, so it stays off until there is a version to freeze:
-//   import starlightVersions from "starlight-versions";
-//   ...plugins: [starlightVersions({ versions: [{ slug: "1.0" }] })]
 
 // https://astro.build/config
 export default defineConfig({
