@@ -49,7 +49,7 @@ TIGRIS_DONE
 
 The encoder convolutions run on the **ESP-NN** accelerated kernels. The decoder
 (ConvTranspose and Concat) runs on the portable INT8 reference kernels, so the
-run is dominated by the decoder and takes about 30 seconds. Exit the monitor
+run is dominated by the decoder and takes about 12 seconds. Exit the monitor
 with `Ctrl-]`.
 
 ## Deploy your own model
