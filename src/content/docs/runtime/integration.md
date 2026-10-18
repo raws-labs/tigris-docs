@@ -18,6 +18,22 @@ target_link_libraries(my_app PRIVATE tigris_runtime)
 
 **Manual:** Copy `tigris-runtime/src/` and `tigris-runtime/include/` into your project. Add the source files to your build system and set the include path.
 
+### Link only the kernels a plan uses
+
+By default the runtime links every operator kernel. `tigris codegen` writes
+`<stem>_kernels.h`, which enables only the kernels the plan uses. Set
+`TIGRIS_OP_CONFIG` to its absolute path before adding the runtime:
+
+```cmake
+set(TIGRIS_OP_CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/generated/vww_kernels.h)
+add_subdirectory(tigris-runtime)
+```
+
+Without CMake, compile the runtime sources with
+`-DTIGRIS_OP_CONFIG='"/path/to/vww_kernels.h"'`. On Cortex-M7 at `-Os`, the VWW app
+with CMSIS-NN links 63,473 bytes of TiGrIS code instead of 107,430. A plan that needs a
+kernel the build leaves out fails to load with `TIGRIS_ERR_KERNEL_DISABLED`.
+
 ## 2. Include headers
 
 ```c
