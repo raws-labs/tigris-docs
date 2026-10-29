@@ -77,10 +77,12 @@ Produce a binary plan sized to the board's SRAM:
 tigris compile model.onnx -m 128K -o model.tgrs
 ```
 
-The `-m` budget is the fast (SRAM) pool. It must fit the board's usable SRAM,
-because the CMSIS-NN fast arena is provisioned at the **budget**, not at the
-(smaller) activation peak. The H753 has ample SRAM; on a smaller part, lower the
-budget until the plan fits. See the [`compile`](/toolchain/compile/)
+The `-m` budget is the fast (SRAM) pool, and it must fit the board's usable
+SRAM. The arena the firmware provides can be smaller than the budget: the plan
+states the fast memory it uses (the `this plan` figure), and the CMSIS-NN fast
+arena needs that plus the adapter's scratch, the figure
+`tigris_cmsis_nn_fast_arena_required()` returns. The H753 has ample SRAM; on a
+smaller part, lower the budget until the plan fits. See the [`compile`](/toolchain/compile/)
 reference for the full flag set and [Operator and Backend
 Support](/runtime/operator-support/) for what the
 CMSIS-NN backend accelerates.
@@ -97,6 +99,11 @@ plan, prepares the CMSIS-NN backend, and runs the schedule, rather than a full
 example application. The board firmware calls into it. See
 [`codegen`](/toolchain/codegen/) for the other formats
 and backends.
+
+The generated core needs the runtime of the same TiGrIS release as the
+compiler. The package builds the runtime it pins, so compile with the matching
+`tigris-ml` release. Runtime headers that predate `tigris_input_alloc()` stop
+the build with an `#error` that says so.
 
 ## Step 5: Embed the plan
 
@@ -119,8 +126,11 @@ cmake -B build -DTIGRIS_BOARD=nucleo_h753zi \
 cmake --build build
 ```
 
-Set `-DTIGRIS_APP_FAST_ARENA_BYTES` to at least your plan's `-m` budget, and
-`-DTIGRIS_APP_SLOW_ARENA_BYTES` if the plan uses a slow pool. If the linker
+Set `-DTIGRIS_APP_FAST_ARENA_BYTES` to at least
+`TIGRIS_CODEGEN_CORE_FAST_ARENA_BYTES` from the generated header plus the
+CMSIS-NN scratch, and `-DTIGRIS_APP_SLOW_ARENA_BYTES` to at least
+`TIGRIS_CODEGEN_CORE_SLOW_ARENA_BYTES`. `tigris_codegen_init()` returns
+`TIGRIS_ERR_MEM` when the fast arena is too small. If the linker
 reports the `.bss` section overflowing SRAM, the arenas are larger than the
 board holds. Lower the budget and the arena together.
 

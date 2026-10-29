@@ -1,11 +1,11 @@
 ---
 title: "Compilation Pipeline"
-description: "How TiGrIS compiles an ONNX or TFLite model into a .tgrs execution plan through seven stages, ending in a binary the C99 runtime runs directly on the target device."
+description: "How TiGrIS compiles an ONNX or TFLite model into a .tgrs execution plan through seven stages, ending in a binary the C runtime runs directly on the target device."
 sidebar:
   order: 310
 ---
 
-TiGrIS compiles an ONNX model into a `.tgrs` execution plan through seven stages. Each stage transforms the model representation, culminating in a binary that the C99 runtime executes directly on the target device.
+TiGrIS compiles an ONNX model into a `.tgrs` execution plan through seven stages. Each stage transforms the model representation, culminating in a binary that the C runtime executes directly on the target device.
 
 A TFLite model enters the same pipeline: the frontend reads the FlatBuffer and states each operator as an ONNX operator or a pattern of them, or as a compiler operator that carries TFLite's exact semantics where ONNX has no equivalent. Constants and static shape arithmetic are folded first, and an operator that cannot convert is refused with its index, name and reason.
 
@@ -17,7 +17,8 @@ Parses the ONNX protobuf and builds an `AnalyzedGraph`, the compiler's internal 
 - Folds the shape subgraph. Exporters compute the classifier reshape from `Shape` at run time, which leaves everything downstream at unknown rank; evaluating that arithmetic to constants is what lets inference resolve the rest. A dimension that still cannot be resolved is an error.
 - Runs ONNX shape inference to resolve the remaining tensor dimensions.
 - Extracts weight tensors from ONNX initializers into `weight_data` entries.
-- Topologically sorts the graph using DFS post-order with reversed child order. Reversing child order biases the schedule toward early tensor consumption, which reduces peak live memory.
+- Topologically sorts the graph using DFS post-order with reversed child order. Reversing child order biases the schedule toward early tensor consumption, which reduces peak live memory. A graph with a cycle has no execution order and is refused.
+- Turns ONNX `Constant` nodes into `weight_data` entries, in the main graph and in every subgraph.
 
 ```bash
 tigris analyze model.onnx -m 256K -f 4M
@@ -31,17 +32,17 @@ Normalization passes run in fixed order. Each pass simplifies the graph toward t
 
 ### Selected passes
 
-1. **Constant op fold.** Converts ONNX `Constant` nodes into `weight_data` entries. Runs before passes that need constant values rather than op references.
+1. **Dead operator drop.** Removes operators whose results no model output needs, and the subgraphs only such an If or While runs. A QuantizeLinear and DequantizeLinear pair on a kept tensor stays, since it states that tensor's quantization. Runs again after the folds, which can take the last reader of an operator.
 
-2. **QDQ fold.** Extracts `QuantizeLinear` / `DequantizeLinear` pairs into `QuantParam` annotations on tensors. Keeps int8 weight values. Uses deferred cleanup to handle shared scale/zero-point constants. An ONNX quantizer states activations as uint8 by default; uint8 value `v` and int8 value `v - 128` denote the same real number under zero points that differ by the same 128, so the tensor is restated in the signed domain the kernels work in, stored data included. Float sections retain explicit Dequantize and Quantize operators, with ordinary float32 tensors between them. The dtype the model declares at each boundary is recorded in the plan, so folding the quantization into a boundary tensor does not change the interface the runtime presents.
+2. **Static subgraph fold.** Computes the parts of the graph that do not depend on input data and replaces them with constants. An exporter that traces a model leaves such arithmetic behind, for example an attention scale computed from a `Shape` of the query through Slice, Cast, Sqrt and a division.
 
-3. **Matrix product relabel.** The fully-connected kernels index the weight as `W[oc * IC + ic]`, which is `Gemm` with `transB=1`. A `MatMul` states the same product with the weight the other way round, and so does a `Gemm` that leaves `transB` at its default, so a constant weight is transposed and the operator relabeled, with a per-channel quantization axis moving along with it. A product with a dynamic second operand remains MatMul and is validated against that kernel's shape limits.
+3. **QDQ fold.** Extracts `QuantizeLinear` / `DequantizeLinear` pairs into `QuantParam` annotations on tensors. Keeps int8 weight values. Uses deferred cleanup to handle shared scale/zero-point constants. An ONNX quantizer states activations as uint8 by default; uint8 value `v` and int8 value `v - 128` denote the same real number under zero points that differ by the same 128, so the tensor is restated in the signed domain the kernels work in, stored data included. Float sections retain explicit Dequantize and Quantize operators, with ordinary float32 tensors between them. The dtype the model declares at each boundary is recorded in the plan, so folding the quantization into a boundary tensor does not change the interface the runtime presents.
 
-4. **BatchNorm fold.** Absorbs BatchNorm parameters (gamma, beta, mean, variance) into the preceding Conv's weight and bias tensors. The BatchNorm node is removed.
+4. **Matrix product relabel.** The fully-connected kernels index the weight as `W[oc * IC + ic]`, which is `Gemm` with `transB=1`. A `MatMul` states the same product with the weight the other way round, and so does a `Gemm` that leaves `transB` at its default, so a constant weight is transposed and the operator relabeled, with a per-channel quantization axis moving along with it. A product with a dynamic second operand remains MatMul and is validated against that kernel's shape limits.
 
-5. **Constant operands and bias.** Uniform float constants in encoded Add and Mul operators are restated as int8 constants. A float channel-bias Add can fold into a preceding float product. An Add after Dequantize instead remains a float operation, after the quantized product has rounded and clipped.
+5. **BatchNorm fold.** Absorbs BatchNorm parameters (gamma, beta, mean, variance) into the preceding Conv's weight and bias tensors. The BatchNorm node is removed.
 
-6. **SiLU decompose.** Rewrites `Silu` into `Sigmoid` + `Mul`. The int8 Sigmoid kernel uses a lookup table; the float32 kernel uses float arithmetic.
+6. **Constant operands and bias.** Uniform float constants in encoded Add and Mul operators are restated as int8 constants. A float channel-bias Add can fold into a preceding float product. An Add after Dequantize instead remains a float operation, after the quantized product has rounded and clipped.
 
 7. **DepthwiseConv relabel.** Conv nodes where `group == C_in` are relabeled to `DepthwiseConv`. This selects the correct runtime kernel.
 
@@ -51,19 +52,17 @@ Normalization passes run in fixed order. Each pass simplifies the graph toward t
 
 10. **ReduceMean to GAP.** Replaces `ReduceMean(axes=[2,3])` with `GlobalAveragePool`.
 
-11. **Shape op fold.** Removes any shape-computation chain (Shape, Gather, Unsqueeze, Concat) that reaches the IR still feeding a Reshape. The target shape is resolved statically and stored as an attribute. Model loading folds most of this arithmetic before the IR exists, so this pass catches what inference left behind.
+11. **Resize scale extract.** Pulls integer scale factors from Resize's constant inputs and stores them as op attributes.
 
-12. **Resize scale extract.** Pulls integer scale factors from Resize's constant inputs and stores them as op attributes.
+12. **Metadata operand strip.** Drops constant shape, axis and bound operands from Clip, Reshape, Squeeze, Unsqueeze, CumSum and the reductions; Pad and Resize operands are lifted by passes of their own. The passes above have lifted them into attributes and into the resolved output shape, and leaving them on the operator makes the emitter bind an index vector as its weight. An operand no pass resolved is left in place so validation reports the operator.
 
-13. **Metadata operand strip.** Drops constant shape and bound operands from Clip, Pad, ReduceMean, Reshape, Resize, Squeeze and Unsqueeze. The passes above have lifted them into attributes and into the resolved output shape, and leaving them on the operator makes the emitter bind an index vector as its weight. An operand no pass resolved is left in place so validation reports the operator.
+13. **Transpose validation.** Validates explicit and default permutations. The plan retains them as operator attributes, including before model outputs.
 
-14. **Transpose validation.** Validates explicit and default permutations. The plan retains them as operator attributes, including before model outputs.
+14. **Activation fuse.** Absorbs `Relu` or `Relu6` following Conv, DepthwiseConv, Gemm, Conv1D, or Add into a `fused_activation` attribute on the preceding op, which then takes over the activation's output tensor and its quantization. Quantize is monotonic, so the plan encodes the clamp as a lower bound at the output zero point. An intermediate carrying its own scale is a quantization step of its own and is left in place, since folding past it would drop that rounding. Runs after all relabeling and rewiring is done.
 
-15. **Activation fuse.** Absorbs `Relu` or `Relu6` following Conv, DepthwiseConv, Gemm, Conv1D, or Add into a `fused_activation` attribute on the preceding op, which then takes over the activation's output tensor and its quantization. Quantize is monotonic, so the plan encodes the clamp as a lower bound at the output zero point. An intermediate carrying its own scale is a quantization step of its own and is left in place, since folding past it would drop that rounding. Runs after all relabeling and rewiring is done.
+15. **Concat axis normalize.** Rewrites Concat's `axis` attribute into the tensor's stored axis order, after layouts are assigned.
 
-16. **Concat axis normalize.** Rewrites Concat's `axis` attribute into the tensor's stored axis order, after layouts are assigned.
-
-17. **Unreferenced constant drop.** Forgets constants no remaining operator consumes. Folded subgraphs and absorbed activations leave their operands behind, and every `weight_data` entry is written into the plan blob. Runs after operator rewrites so it sees the final operator set.
+16. **Unreferenced constant drop.** Forgets constants no remaining operator consumes. Folded subgraphs and absorbed activations leave their operands behind, and every `weight_data` entry is written into the plan blob. Runs after operator rewrites so it sees the final operator set.
 
 ## 3. Lifetime Analysis
 
@@ -113,39 +112,35 @@ A stage tiles only when every operator supports its selected axis and band geome
 
 ### Receptive field calculation
 
-Starting from the stage's output, walk spatial ops in reverse:
+Walk the stage's spatial ops in execution order:
 
 ```
 RF = 1
-for each spatial op (reverse order):
+cumulative_stride = 1
+for each spatial op (execution order):
     eff_kernel = kernel + (kernel - 1) * (dilation - 1)
     RF = RF + (eff_kernel - 1) * cumulative_stride
+    cumulative_stride = cumulative_stride * stride
 ```
 
 The **halo** is `RF - 1`, the number of overlap rows needed at each tile boundary.
 
 ### Tile height selection
 
-```
-tile_h = floor(budget * H / peak) - halo
-```
+The tile height counts output rows. A binary search finds the largest band whose working set fits the budget: every stage input over the rows the band reads, plus every operator output over its rows, each aligned as the runtime allocates it. The compiler then takes the smallest band that needs the same number of tiles and reads no more input rows, and states that band's working set as the stage's tiled peak.
 
-The tiled peak memory is approximately:
+A rank-4 stage whose operators also cut along the width can run as a grid of 2D tiles instead. The compiler takes the 2D tile when no band of rows fits, or when the grid loads fewer input bytes than the bands do.
 
-```
-tiled_peak ~= peak * (tile_h + halo) / H
-```
-
-Overhead from recomputing halo rows: `halo_bytes * (num_tiles - 1)`.
+Overhead from re-reading halo rows: `halo_bytes * (num_tiles - 1)`.
 
 ### Chain tiling
 
 When two or more consecutive tileable stages each have exactly one output feeding the next stage's input, they form a **chain**. Chain tiling processes the entire chain per tile iteration, so intermediate activations between stages stay in SRAM and never touch PSRAM.
 
 Chain conditions:
-- Both stages support tiling along the chain's height axis.
-- Each stage has exactly one output tensor consumed by exactly one next stage.
-- No fan-out from intermediate tensors.
+- Every stage supports tiling along the chain's height axis, and every operator reads the band the stage holds.
+- Each stage before the last has exactly one output tensor, and the next stage reads it.
+- No tensor a stage before the last produces is read outside the chain or is a model output.
 
 The compiler back-propagates tile heights from the last stage's output through each stage's spatial parameters (kernel, stride, dilation). A binary search finds the maximum tile height where all intermediate tile buffers plus aligned allocations fit within the SRAM budget.
 
@@ -163,9 +158,9 @@ The final stage serializes the execution plan to the `.tgrs` binary format:
    ```
    This is decomposed into a Q0.31 fixed-point multiplier and a right-shift value for integer-only arithmetic on the target.
 
-3. **Weight compression.** Optionally, weights are compressed with LZ4, grouped by stage. The runtime decompresses into the `fast_reserved` prefix of the SRAM arena before executing the stage.
+3. **Weight compression.** Optionally, weights are compressed with LZ4, grouped by stage. The runtime decompresses into the `fast_reserved` prefix of the SRAM arena before executing the stage. The decompressed weights a stage or chain holds at once are reserved out of the `-m` budget and the activations are planned in the rest; no plan is written when the weights leave no room for activations.
 
-4. **Binary write.** Op descriptors, tensor metadata, tiling parameters, and weight blobs are written to the `.tgrs` file.
+4. **Binary write.** Op descriptors, tensor metadata, tiling parameters, and weight blobs are written to the `.tgrs` file. `tigris compile` first loads the plan with the bundled runtime's loader, when the installation has one, and writes no file when the loader refuses it.
 
 ```bash
 tigris compile model.onnx -m 256K -f 4M --xip -o model.tgrs

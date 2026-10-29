@@ -37,7 +37,7 @@ tigris codegen vww.tgrs --backend cmsis-nn -o vww.c
 ```
 
 ```text
-wrote vww.c   app, cmsis-nn backend, 5.25 KiB, kernels vww_kernels.h
+wrote vww.c   app, cmsis-nn backend, 5.43 KiB, kernels vww_kernels.h
 ```
 
 The plan stays a separate file; the generated C loads it at run time.
@@ -85,10 +85,25 @@ copying generated runtime setup into application code.
 
 The generated header exports model-specific constants for tensor-table capacity,
 plan budget, compressed-weight reserve, and the fast and slow arenas the plan
-needs (`<NAME>_CORE_FAST_ARENA_BYTES`, `<NAME>_CORE_SLOW_ARENA_BYTES`). Use `--name` to choose a C-identifier
+needs (`<NAME>_CORE_FAST_ARENA_BYTES`, `<NAME>_CORE_SLOW_ARENA_BYTES`). When the slow
+figure is 0, pass a NULL slow arena of size 0. Read the outputs before the next
+reset: reset drops every tensor, and when the plan reads its inputs in place its
+outputs stay in the fast arena, where the next inputs go. Use `--name` to choose a C-identifier
 prefix for its functions, types, and macros; this lets multiple generated cores
 coexist in the same firmware. `--header` and `--name` apply only to
 `--format core`.
+
+Code of either format places model inputs with
+[`tigris_input_alloc()`](/runtime/api-reference/#tigris_input_alloc) and stops
+the build with `#error` on runtime headers that do not define
+`TIGRIS_RUNTIME_VERSION_MAJOR`, which predate that call. The core's init and
+reset return a `tigris_error_t`: `TIGRIS_ERR_TENSOR_SLOTS` when the tensor
+capacity is below the plan's tensor count, and `TIGRIS_ERR_MEM` when an arena
+cannot hold the inputs or the backend's reservation. For a plan of schema 11
+or later `<NAME>_CORE_FAST_ARENA_BYTES` is the plan's scheduled peak plus the
+compressed-weight reserve, the arena a run of that plan requires on a runtime
+whose `TIGRIS_TENSOR_ALIGN` is at most 32. The header stops the build with
+`#error` when `TIGRIS_TENSOR_ALIGN` is above 32.
 
 ## When to Use Codegen vs. Loading .tgrs
 
@@ -109,8 +124,8 @@ The plan is stored in a flash partition and loaded at runtime with `tigris_plan_
 # Compile the plan
 tigris compile model.onnx -m 256K -o model.tgrs
 
-# Flash to partition
-scripts/flash_plan.sh model.tgrs
+# Write the plan to the partition named plan (ESP-IDF)
+parttool.py write_partition --partition-name plan --input model.tgrs
 ```
 
 ### Codegen `app` harness

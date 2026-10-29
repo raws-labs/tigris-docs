@@ -31,10 +31,11 @@ resources stay unconstrained.
 | `--backend` | Kernel backend, e.g. `reference` |
 | `--quantization`, `--quant` | Weight and activation precision, e.g. `float32` |
 | `-m`, `--mem` | Maximum fast arena; repeat for the slow arena |
-| `-f`, `--flash` | Maximum plan size in bytes |
+| `-f`, `--flash` | Maximum plan size |
 
 `-m` and `-f` bound the plan's own arenas and size, not total application RAM or
-flash. The newest published build that matches wins.
+flash. They take a byte count or a number with a `K` or `M` suffix, such as `64K`,
+and a size of 0 is a usage error. The newest published build that matches wins.
 
 ## `tigris zoo list`
 
@@ -65,7 +66,7 @@ plan schema, backends and publication date:
 ```text
 resnet8-s8-s9-48k-3b7f5d5e956844e0   resnet8, Image classification, int8
   runtime     >= 0.11.1, no known upper bound
-  tested      0.11.3, 0.11.4
+  tested      0.11.3, 0.11.4, 0.12.0, 0.12.1
   schema      9, backends reference
   memory      fast 48.00 KiB, slow 3.03 KiB, plan 87.56 KiB
   published   2026-09-28T06:44:18.327025Z

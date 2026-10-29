@@ -91,7 +91,7 @@ fits 64.00 KiB fast memory, 58 stages, 53 tiled
 memory
   unscheduled        1.44 MiB
   largest tensor     1.15 MiB   1x96x112x112
-  this plan         63.00 KiB   1.00 KiB headroom
+  this plan         62.50 KiB   1.50 KiB headroom
   slow memory        1.29 MiB
   slow traffic       5.07 MiB   per inference: 1.80 MiB written, 3.26 MiB read
   also fits at      32.00 KiB   64 stages, 62 tiled
@@ -99,7 +99,7 @@ memory
   does not fit at    8.00 KiB
 
 flash
-  plan   3.39 MiB   weights 3.38 MiB, overhead 10.25 KiB
+  plan   3.39 MiB   weights 3.38 MiB, overhead 10.36 KiB
 ```
 
 Note the input and output rows. The model declares float32 at both ends.
@@ -116,11 +116,11 @@ both ways:
 | Weights | Plan | Quantization error against the float model |
 |---|---|---|
 | per-tensor | 3.39 MiB | max 49.1 LSB, mean 45.9 |
-| per-channel | 3.81 MiB | max 17.5 LSB, mean 13.8 |
+| per-channel | 3.53 MiB | max 17.5 LSB, mean 13.8 |
 
-Roughly a third of the error for 0.42 MiB. Take per-channel unless flash is the
+Roughly a third of the error for 0.14 MiB. Take per-channel unless flash is the
 binding constraint. The activation memory does not change either way: both have
-a 1.44 MiB unscheduled peak and a 15.00 KiB floor, because only the weights are
+a 1.44 MiB unscheduled peak and a 9.38 KiB floor, because only the weights are
 affected.
 
 One catch: `axis` on `DequantizeLinear` arrived in opset 13, so per-channel
@@ -139,8 +139,9 @@ onnx.save(version_converter.convert_version(model, 13), "model.opset13.onnx")
 instead of QDQ pairs. TiGrIS refuses them with the format named:
 
 ```text
-cannot compile: 1 unsupported operator
-  quantized_matmul (QLinearMatMul: ONNX QOperator format; TiGrIS ingests QDQ. Re-export with quant_format=QuantFormat.QDQ)
+cannot compile: 2 unsupported operators
+  matmul_quant (QLinearMatMul: ONNX QOperator format; TiGrIS ingests QDQ. Re-export with quant_format=QuantFormat.QDQ)
+  y_DequantizeLinear (DequantizeLinear)
 ```
 
 **`quantize_dynamic`** computes activation scales at run time. Its

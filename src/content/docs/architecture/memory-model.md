@@ -18,7 +18,7 @@ The primary working memory for inference. All activation tensors during op execu
 - Bump allocator, pointer advances forward with alignment padding.
 - Reset per stage or per tile iteration.
 - Size set by the `-m` flag (e.g., `-m 256K`).
-- An optional `fast_reserved` prefix at the start of the arena holds decompressed weight blocks and survives arena resets.
+- An optional `fast_reserved` prefix at the start of the arena holds decompressed weight blocks and survives arena resets. With `-c lz4` the compiler reserves it out of the `-m` budget and plans activations in the rest.
 
 ### PSRAM (slow buffer)
 
@@ -27,8 +27,8 @@ Inter-stage tensor storage, needed by any multi-stage plan. Usually external PSR
 - Bump allocator, persistent across stages.
 - Compacted after each stage: dead tensors are reclaimed and live tensors are shifted down.
 - Stage inputs are loaded from here into the fast arena. Stage outputs are spilled from the fast arena to here.
-- Model inputs are pre-allocated here by the caller before inference.
-- Model outputs remain here after inference completes.
+- Model inputs are placed here before inference, and model outputs remain here after inference completes, except in a plan that reads its inputs in place (see [Special tensors](#special-tensors)).
+- Compaction keeps every tensor aligned to `TIGRIS_TENSOR_ALIGN`. A slow buffer whose base is not aligned leaves the bytes below its first aligned address unused.
 
 ### Flash (read-only, XIP)
 
@@ -101,8 +101,8 @@ arena range becomes eligible for reclamation during compaction.
 
 ### Special tensors
 
-- **Model inputs**: Allocated in the slow buffer by the caller before invoking the executor. The first stage loads them.
-- **Model outputs**: Left in the slow buffer after the last stage. The caller reads them directly.
+- **Model inputs**: Placed by `tigris_input_alloc()`, which `tigris_input_write()` calls, before invoking the executor. For a plan that reads its inputs in place (the condition is under [`tigris_input_alloc`](/runtime/api-reference/#tigris_input_alloc)) they go to the fast arena, above room left for the stage's decompressed weights, and the stage decompresses its weights into that room, reads the inputs where they are and consumes them. Otherwise they go to the slow buffer and the first stage loads them.
+- **Model outputs**: Left in the slow buffer after the last stage. When the inputs were read in place, the outputs stay in the fast arena instead, valid until the next allocation there, so the caller reads them before writing the next inputs.
 - **Constants/weights**: Reside in flash. Not allocated in either arena. Accessed by pointer.
 
 ## Alignment
@@ -116,6 +116,8 @@ Tensor addresses are aligned to `TIGRIS_TENSOR_ALIGN` bytes. The value is auto-d
 | x86_64 | 32 bytes | AVX2 256-bit vector alignment |
 | Arm Cortex-M with DSP (`__ARM_FEATURE_DSP`) | 16 bytes | CMSIS-NN DSP kernels and wide loads |
 | Arm Cortex-M without DSP | 4 bytes | Portable fallback alignment |
+
+Compiled plans size every allocation for an alignment of at most 32 bytes. Where auto-detection would pick more, as on Arm SVE (64), the build stops; define the value, for example `-DTIGRIS_TENSOR_ALIGN=32`. A header from `tigris codegen --format core` also stops the build when `TIGRIS_TENSOR_ALIGN` is above 32.
 
 Override with `-DTIGRIS_TENSOR_ALIGN=N` at build time. Backend-specific scratch buffers (e.g., ESP-NN SIMD) may require stricter alignment and are handled separately by the backend adapter.
 
@@ -136,9 +138,19 @@ compressed-weight overhead when comparing it with the compiler's activation
 bound. Backend workspace reserved outside the usable arena must be counted
 separately.
 
+A plan of schema 11 or later states that bound as its scheduled peak: the fast
+bytes its largest stage or chain holds at once, which the compiler checked
+against the budget. `tigris_fast_arena_required()` returns the scheduled peak
+plus the compressed-weight reservation. A run refuses with
+`TIGRIS_EXEC_ERR_MEM`, before any stage runs, when less than that is free above
+its floor: the arena's fill level on entry or, for inputs read in place, the
+start of the room left below them. An earlier plan states no peak: the
+requirement is its budget plus the reservation, and the run is not checked up
+front.
+
 ## Memory budget sizing
 
-The `-m` flag sets the SRAM activation budget used during compilation. Choosing the right budget involves a tradeoff:
+The `-m` flag sets the SRAM activation budget used during compilation; with `-c lz4` it also holds the decompressed weights. Choosing the right budget involves a tradeoff:
 
 | Budget | Stages | Spill traffic | Tiling overhead | Inference speed |
 |---|---|---|---|---|

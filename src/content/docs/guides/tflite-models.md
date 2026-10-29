@@ -7,6 +7,8 @@ sidebar:
 
 TiGrIS compiles a `.tflite` file as it is. `tigris analyze` and `tigris compile`
 accept it in place of an ONNX model; there is no separate conversion step.
+To keep running the model on TFLite Micro in a smaller arena instead, see
+[`tigris export`](/toolchain/export/).
 
 ```bash
 tigris analyze model.tflite -m 256K
@@ -19,7 +21,7 @@ uses an operator or a form the compiler cannot run is refused before
 compiling, with the operator's index, its TFLite name and the reason:
 
 ```text
-operator 12 STRIDED_SLICE: a zero stride
+Error: TFLite model does not convert: operator 0 STRIDED_SLICE: a zero stride
 ```
 
 ## What the plan keeps from the model
@@ -53,6 +55,12 @@ operator 12 STRIDED_SLICE: a zero stride
 - int8 activations quantized per tensor; weights constant, int8 weights
   symmetric, per channel or per tensor.
 - Fused activations `NONE`, `RELU` or `RELU6`.
+- Operator options that agree with the shapes the file states. TFLite Micro
+  computes by the options: a window's padding, `depth_multiplier`,
+  `block_size`, the axis and count of `PACK`, `UNPACK` and `CONCATENATION`,
+  `GATHER`'s axes, `BATCH_MATMUL`'s adjoint flags and a strided slice's
+  bounds. A file whose stated shapes differ from what they give is refused, as
+  is one whose operators name a tensor outside its list.
 - Shapes fixed in the file. `SHAPE`, `ZEROS_LIKE`, `FILL` and
   `BROADCAST_ARGS` convert when everything they read is fixed in the file:
   they become constants. So does arithmetic on such constants through
@@ -71,7 +79,7 @@ indices, axes, padding or bounds need them as constants in the file.
 | Operator | Limits |
 |---|---|
 | `CONV_2D`, `DEPTHWISE_CONV_2D`, `TRANSPOSE_CONV` | |
-| `FULLY_CONNECTED` | shuffled weight format refused |
+| `FULLY_CONNECTED` | shuffled weight format and a non-empty `quant_spec` refused |
 | `BATCH_MATMUL` | operands of equal rank |
 | `AVERAGE_POOL_2D`, `MAX_POOL_2D` | |
 | `L2_POOL_2D` | float32 only, as in TFLite Micro |
@@ -109,7 +117,7 @@ indices, axes, padding or bounds need them as constants in the file.
 | Operator | Limits |
 |---|---|
 | `SVDF` | a bias, which TFLite Micro requires; float32 with Relu or Relu6, or int8 with int16 state and time weights |
-| `UNIDIRECTIONAL_SEQUENCE_LSTM` | every gate; no peepholes, projection or layer normalization, which TFLite Micro does not run; tanh cell activation; float32, or int8 with a symmetric int16 cell and per-tensor weights |
+| `UNIDIRECTIONAL_SEQUENCE_LSTM` | every gate; no peepholes, projection, layer normalization or diagonal (rank-1) recurrent weights, which TFLite Micro does not run; tanh cell activation; float32, or int8 with a symmetric int16 cell and per-tensor weights |
 
 ### Control flow
 
@@ -145,7 +153,7 @@ memory of about 41 bytes per box during its stage.
 | `RESHAPE`, `SQUEEZE`, `EXPAND_DIMS`, `TRANSPOSE` | |
 | `CONCATENATION`, `SPLIT`, `SPLIT_V`, `PACK`, `UNPACK` | int8 inputs share the output's quantization |
 | `PAD`, `PADV2`, `MIRROR_PAD` | |
-| `SLICE`, `STRIDED_SLICE` | rank 4 at most; no ellipsis, new axes or offset; no zero stride; a dropped axis needs a positive stride |
+| `SLICE`, `STRIDED_SLICE` | one begin, end and stride entry (`SLICE`: begin and size) per input axis; rank 4 at most; no ellipsis, new axes or offset; no zero stride; a dropped axis needs a positive stride |
 | `GATHER`, `GATHER_ND`, `EMBEDDING_LOOKUP` | the table computed or constant; indices constant, or int32 from a model input, `ARG_MAX`/`ARG_MIN` or int32 `ADD`/`SUB`/`MUL`, also through `CAST`, `RESHAPE` and `TRANSPOSE`; an int64 model input that only feeds indices is read as int32 unless the model records a range beyond it; an index outside its axis stops the run with an error |
 | `REVERSE_V2` | adjacent axes |
 | `BROADCAST_TO`, `DYNAMIC_UPDATE_SLICE` | start indices constant, or int32 from a model input, `ARG_MAX`/`ARG_MIN` or int32 `ADD`/`SUB`/`MUL`; starts are clamped so the update fits, as in TFLite |

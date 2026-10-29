@@ -28,7 +28,7 @@ fits 256.00 KiB fast memory, 58 stages, 53 tiled
 memory
   unscheduled         5.74 MiB
   largest tensor      4.59 MiB   1x96x112x112
-  this plan         252.00 KiB   4.00 KiB headroom
+  this plan         250.00 KiB   6.00 KiB headroom
   slow memory         5.17 MiB
   slow traffic       20.25 MiB   per inference: 7.21 MiB written, 13.04 MiB read
   also fits at      128.00 KiB   64 stages, 62 tiled
@@ -36,7 +36,7 @@ memory
   does not fit at    32.00 KiB
 
 flash
-  plan      13.31 MiB   weights 13.30 MiB, overhead 8.22 KiB
+  plan      13.31 MiB   weights 13.30 MiB, overhead 8.32 KiB
   as int8    3.33 MiB   estimate
 ```
 
@@ -51,10 +51,10 @@ budget raises the figure and lowers the stage count:
 
 | `-m` | This plan | Stages | Tiled |
 |---|---|---|---|
-| 64K | 63.56 KiB | 64 | 63 |
-| 256K | 252.00 KiB | 58 | 53 |
+| 64K | 63.97 KiB | 64 | 63 |
+| 256K | 250.00 KiB | 58 | 53 |
 | 512K | 504.88 KiB | 43 | 38 |
-| 1M | 1008.00 KiB | 17 | 15 |
+| 1M | 990.50 KiB | 17 | 15 |
 
 So this figure does not tell you whether a smaller part would work. The `also fits at`
 rows do, and the floor appears once the budget is too small.
@@ -147,7 +147,7 @@ Error: no plan written: decompressed weights need 4.89 MiB of fast memory, the b
 ```
 
 On a model whose per-stage weights are small it compiles, but the saving is
-thin. DS-CNN at `-m 128K` goes from 89.64 KiB to 88.44 KiB of plan, about one
+thin. DS-CNN at `-m 128K` goes from 89.64 KiB to 88.46 KiB of plan, about one
 percent, in exchange for 66.50 KiB of the fast memory. Reach for it when weights are
 compressible and stages are small, not as a general fix.
 
@@ -169,7 +169,7 @@ fits 64.00 KiB fast memory, 58 stages, 53 tiled
 memory
   unscheduled        1.44 MiB
   largest tensor     1.15 MiB   1x96x112x112
-  this plan         63.00 KiB   1.00 KiB headroom
+  this plan         62.50 KiB   1.50 KiB headroom
   slow memory        1.29 MiB
   slow traffic       5.07 MiB   per inference: 1.80 MiB written, 3.26 MiB read
   also fits at      32.00 KiB   64 stages, 62 tiled
@@ -177,7 +177,7 @@ memory
   does not fit at    8.00 KiB
 
 flash
-  plan   3.39 MiB   weights 3.38 MiB, overhead 10.25 KiB
+  plan   3.39 MiB   weights 3.38 MiB, overhead 10.36 KiB
 ```
 
 The input and output rows are the plan's contract. The model declares float32

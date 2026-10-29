@@ -92,7 +92,7 @@ tigris inspect mobilenet.tgrs
 ```
 
 ```text
-mobilenet.tgrs   plan, model mobilenet_v1_matched, schema 9, 31 operators, 13 stages, 12 tiled, 3.18 MiB
+mobilenet.tgrs   plan, model mobilenet_v1_matched, schema 11, 31 operators, 13 stages, 12 tiled, 3.18 MiB
   input    input    1x128x128x3 float32   stored int8, NHWC
   output   l33_dq   1x10 float32          stored int8, model order
 
@@ -125,7 +125,10 @@ runtime build   default limits suffice
 
 With `-v`, a `stages` table lists each stage's operators, its peak before tiling, the
 weights it reads and how it tiles, followed by every operator's parameters and the
-stored tensors. A plan compiled without
+stored tensors. A stage tiled on both spatial axes shows as `N tiles of H x W, halo K`,
+one tiled along a single axis as `N tiles, axis A, halo K`, and the first stage of a
+chain as `chain of N` with its tile height. A schema 10 tile record states neither the
+tile count nor the halo, so such a stage shows as `tiled` with its axis. A plan compiled without
 [`--keep-names`](/toolchain/compile/#options) names only the model, its inputs and
 its outputs: its operators show as `(unnamed)` and its other tensors by their id,
 for example `tensor 3`.
@@ -138,7 +141,10 @@ runtime version.
 `--json` prints everything `inspect` reads, with exact byte counts and without weight
 values, including the cost, quantization and requirement figures above. The top-level
 `inspection_version` field versions the document, so scripts can check it before reading
-further.
+further. Version 2 lists each tile record by the fields its schema states: a schema 11
+record adds `tile_extent`, `num_tiles`, `original_extent`, `halo`, `band_axis`,
+`band_kind` and `band_mode` to the scheduling choices, and a schema 10 record leaves
+those seven `null`.
 
 ```bash
 tigris inspect model.tgrs --json

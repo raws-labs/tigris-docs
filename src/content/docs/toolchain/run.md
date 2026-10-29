@@ -48,9 +48,9 @@ tigris run downloaded-model/model.tgrs \
 ```
 
 ```text
-model.tgrs   runtime 0.12.0, bundled, host reference backend
+model.tgrs   runtime 0.13.0, bundled, host reference backend
   fast arena peak   768 B   measured; plan and workspace excluded
-  slow arena peak   768 B
+  slow arena peak     0 B
 
 wrote prediction.bin   1x24 float32
 ```
@@ -84,7 +84,7 @@ tigris run model.tgrs --input input.bin --output prediction.bin --json
 
 ```json
 {
-  "runtime_version": "0.12.0",
+  "runtime_version": "0.13.0",
   "runtime_source": "bundled",
   "backend": "reference",
   "output": "prediction.bin",
@@ -92,11 +92,18 @@ tigris run model.tgrs --input input.bin --output prediction.bin --json
     "fast_capacity_bytes": 1024,
     "slow_capacity_bytes": 1664,
     "fast_peak_bytes": 768,
-    "slow_peak_bytes": 768,
-    "executor_workspace_bytes": 91
+    "slow_peak_bytes": 0,
+    "executor_workspace_bytes": 63
   },
   "tensors": [
-    {"name": "output", "dtype": "float32", "shape": [1, 24]}
+    {
+      "name": "output",
+      "dtype": "float32",
+      "shape": [
+        1,
+        24
+      ]
+    }
   ]
 }
 ```

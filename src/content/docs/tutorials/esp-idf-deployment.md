@@ -113,11 +113,15 @@ The simplest integration embeds the plan in the firmware, the way the
      plus the executor workspace from `tigris_executor_workspace_required()`,
      and initialize `tigris_mem_t` with `tigris_mem_init()`.
   3. Call `tigris_esp_nn_prepare()` (guarded by `TIGRIS_HAS_ESP_NN`) to reserve
-     the ESP-NN scratch. It returns -2 when a Conv or depthwise weight is not
-     16-byte aligned, which means the plan buffer is misaligned.
-  4. Fill the model input, then run with `tigris_run_with_workspace_buffer()`
-     using `tigris_dispatch_kernel_esp_nn` (or `tigris_dispatch_kernel_s8` for
-     the portable INT8 path).
+     the ESP-NN scratch. It returns -2 when a Conv or depthwise weight or bias is
+     not 16-byte aligned, which means the plan buffer is misaligned.
+  4. Hand each input to `tigris_input_write()` in the dtype the model
+     declares. It converts the data and places the input with
+     `tigris_input_alloc()`, in the fast arena when the plan reads its inputs
+     in place (see [Set model inputs](/runtime/integration/#6-set-model-inputs)).
+     Then run with `tigris_run_with_workspace_buffer()` using
+     `tigris_dispatch_kernel_esp_nn` (or `tigris_dispatch_kernel_s8` for the
+     portable INT8 path).
 
 Enable PSRAM in `sdkconfig.defaults.esp32s3` (`CONFIG_SPIRAM=y`, plus the octal
 or quad mode for your board) and size the app partition to hold the embedded
