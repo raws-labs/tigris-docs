@@ -44,18 +44,19 @@ vww_96_int8.tflite   int8, 31 operators
 fits 32.00 KiB fast memory, 8 stages, 7 tiled
 
 memory
-  TFLite Micro tensors    72.00 KiB   its planner; kernel scratch excluded
-  unscheduled             54.00 KiB
-  largest tensor          36.00 KiB   1x48x48x16
-  this plan               28.22 KiB   3.78 KiB headroom
-  slow memory             45.00 KiB   budget 1.00 MiB
-  slow traffic           109.13 KiB   per inference: 18.00 KiB written, 91.12 KiB read
-  also fits at            16.00 KiB   12 stages, 11 tiled
-  also fits at             8.00 KiB   24 stages, 23 tiled
-  also fits at             4.00 KiB   28 stages, 27 tiled
+  TFLite Micro arena     72.00 KiB   its planner and reduction scratch; persistent allocations and other kernel scratch excluded
+  TFLite Micro export   -24.69 KiB   head 72.00 KiB -> 45.00 KiB, persistent +2.31 KiB, +0.25% MACs, reference kernels on arm-none-eabi
+  unscheduled            54.00 KiB
+  largest tensor         36.00 KiB   1x48x48x16
+  this plan              28.22 KiB   3.78 KiB headroom
+  slow memory            45.00 KiB   budget 1.00 MiB
+  slow traffic          109.13 KiB   per inference: 18.00 KiB written, 91.12 KiB read
+  also fits at           16.00 KiB   12 stages, 11 tiled
+  also fits at            8.00 KiB   24 stages, 23 tiled
+  also fits at            4.00 KiB   28 stages, 27 tiled
 
 flash
-  plan           239.31 KiB   weights 213.93 KiB, overhead 25.38 KiB
+  plan           239.32 KiB   weights 213.93 KiB, overhead 25.39 KiB
   flash budget     1.00 MiB   fits
 ```
 
@@ -70,6 +71,7 @@ caller hands over, and the verdict:
 | `fits <budget> fast memory; slow memory X needed, Y given` | The fast memory is enough, the second `-m` is not. |
 | `does not fit <budget> fast memory: N stages exceed it` | One line per stage follows, largest first, with the fast memory it still needs and why it cannot shrink. |
 | `cannot compile: N unsupported operators` | The operators and reasons follow; `--json` lists all of them. |
+| `cannot compile: REASON` | An output no operator computes, or an activation dtype the runtime does not run. |
 | `no budget given; memory figures only` | No `-m` was given. |
 
 A stage that does not fit names its reason:
@@ -88,12 +90,13 @@ change in each case.
 
 | Row | Meaning |
 |---|---|
-| `TFLite Micro tensors` | For a single-graph TFLite model: the tensor arena TFLite Micro's own memory planner places for the same file. Kernel scratch and TFLite Micro's persistent allocations come on top. |
+| `TFLite Micro arena` | For a single-graph TFLite model that [`tigris export`](/toolchain/export/) can read, with its buffers inside the FlatBuffer, and whose tensor types TFLite Micro's arena model knows: the arena head TFLite Micro's own memory planner places for the same file, its tensors plus the scratch buffers of `MEAN`, `SUM`, `REDUCE_MAX`, `REDUCE_MIN` and `REDUCE_ALL`. Other kernels' scratch and TFLite Micro's persistent allocations come on top. |
+| `TFLite Micro export` | How much TFLite Micro's arena goes down when [`tigris export`](/toolchain/export/) rewrites the model: the head before and after, the growth of the persistent allocations, the multiply-accumulates the rewrite adds, and last the kernels and target these figures are for, TFLite Micro's reference kernels on `arm-none-eabi`. Shown with the `TFLite Micro arena` row, as `none` and the reason when export would write nothing, followed by the kernels and target when the reason is that no rewrite lowers the arena. |
 | `unscheduled` | The activation peak if the whole model ran as one stage. |
 | `largest tensor` | The largest activation and its shape. |
 | `this plan` | The fast memory the plan uses, and the headroom left in the budget. |
 | `slow memory` | What the tensors that cross stage boundaries need in the slow pool. |
-| `slow traffic` | Bytes written to and read back from slow memory in one inference, measured by running the plan once on the host runtime. Without a host runtime it reads `not measured` with the reason. |
+| `slow traffic` | Bytes written to and read back from slow memory in one inference, measured by running the plan once on the host runtime. It reads `not measured` with the reason when there is no host runtime or when a `While` loop's iteration count depends on the input values. It is absent when the plan does not fit the slow budget. |
 | `also fits at`, `fits at`, `does not fit at` | Up to three more budgets, halving from a budget that fits or doubling from one that does not. Each is a full compile. |
 
 ### Flash
@@ -101,8 +104,8 @@ change in each case.
 `plan` is the size `compile` writes, split into weights and overhead. `with -c lz4`
 estimates the plan with compressed weights; it appears only where `compile -c lz4`
 writes a plan at the given budgets, which also have to hold each stage's
-decompressed weights. `as int8` estimates a float32 model's plan after
-quantization. With `-f`, `flash budget` says whether the plan fits.
+decompressed weights, and where it is at least 5% smaller than `plan`. `as int8`
+estimates a float32 model's plan after quantization. With `-f`, `flash budget` says whether the plan fits.
 
 ### Runtime build
 
@@ -138,7 +141,8 @@ stages
 `ops` are the operator indices the stage runs, `untiled peak` is what the stage
 would need without tiling, and `in` and `out` count the tensors that enter and
 leave the stage. `tiling` says how the stage runs: `untiled`, `N tiles, axis A,
-halo H`, `chain of N, tile height H` for the first stage of a chain, or
+halo K` for tiles along one axis, `N tiles of H x W, halo K` for tiles in height
+and width, `chain of N, tile height H` for the first stage of a chain, or
 `in chain C` for the others.
 
 ## Execution trace
@@ -146,16 +150,18 @@ halo H`, `chain of N, tile height H` for the first stage of a chain, or
 `--trace` compiles the plan in memory, runs it once on the host runtime bundled
 with the package, and prints what the runtime did. The numbers are measured, not
 predicted: the runtime reports every allocation, load, spill and tile as it
-happens.
+happens. It needs `-m` and a plan that fits the fast and the slow budget;
+otherwise it stops with `no plan to trace`, and `analyze` without `--trace` says
+why.
 
 ```bash
 tigris analyze vww_96_int8.tflite -m 32K -m 1M --trace
 ```
 
 ```text
-vww_96_int8.tflite   traced on runtime 0.12.0, host reference backend, zero input
+vww_96_int8.tflite   traced on runtime 0.13.0, host reference backend, zero input
   moved       18.00 KiB written, 91.12 KiB read
-  fast peak   28.22 KiB of 32.00 KiB
+  fast peak   28.22 KiB of 28.22 KiB
 
 stage   kind      tiles        read     written   fast peak   slow used
     0   chain 7      12   73.12 KiB   18.00 KiB   28.22 KiB   45.00 KiB
@@ -166,7 +172,9 @@ stage   kind      tiles        read     written   fast peak   slow used
 
 `moved` is the traffic between fast and slow memory for one inference: bytes
 written to slow memory and bytes read back. When the slow pool is external PSRAM,
-this traffic costs time on every inference. Each row of the table is one stage or
+this traffic costs time on every inference. `fast peak` is the highest fast memory
+use, out of the arena the host runtime gives the plan: the size
+`tigris_fast_arena_required()` returns. Each row of the table is one stage or
 one chain of stages: how it ran, how many tiles, what it read and wrote, the
 highest fast memory use and the slow memory in use. When weights are compressed,
 a `weights` row gives the bytes decompressed into fast memory.
@@ -183,13 +191,13 @@ stage 0   chain 7
     alloc   model/activation/Relu;model/b...                fast+0        4.12 KiB
     ...
   tile 1    rows 2-24
-    alloc   input_1_int8                                    fast+23424    6.47 KiB
-    load    input_1_int8                       slow+576     fast+23424    6.47 KiB   rows 2-24
+    alloc   input_1_int8                                    fast+22272    6.47 KiB
+    load    input_1_int8                       slow+576     fast+22272    6.47 KiB   rows 2-24
     move    model/activation/Relu;model/b...   fast+384     fast+0        2.62 KiB
     op      Conv_3
     ...
-    spill   model/activation_6/Relu;model...   fast+21888   slow+29184    1.50 KiB   rows 2-3
-    reset                                                   fast+23424
+    spill   model/activation_6/Relu;model...   fast+20736   slow+29184    1.50 KiB   rows 2-3
+    reset                                                   fast+22272
 ```
 
 | Event | Meaning |
@@ -204,6 +212,8 @@ stage 0   chain 7
 The trace runs on zeros unless `--input` gives real data, in the formats
 [`tigris run`](/toolchain/run/) reads. The schedule is fixed at compile time, so
 the input changes the trace only where the plan branches on data (`If`, `While`).
+A `While` loop whose iteration count depends on the input values does not run on
+zeros: `--trace` then needs `--input`.
 `--trace` needs the host runtime, which platform wheels bundle; see
 [Installation](/getting-started/installation/).
 
@@ -215,7 +225,7 @@ then these sections:
 | Section | Holds |
 |---|---|
 | `model` | Name, format, dtype, interface, operator and tensor counts, unscheduled peak, largest tensor, unsupported operators |
-| `tflite_micro` | TFLite Micro's tensor arena and what it excludes; `null` for an ONNX model |
+| `tflite_micro` | TFLite Micro's arena head, what it excludes, and `export` with what [`tigris export`](/toolchain/export/) finds for `arm-none-eabi`; `null` for an ONNX model and for a TFLite model without the `TFLite Micro arena` row |
 | `fast` | Budget, verdict, scheduled peak, stage counts, every blocking stage with its reason |
 | `slow` | Budget, peak, whether it fits, measured `traffic` as `written` and `read` bytes or `null` |
 | `flash` | Budget, weight and plan bytes, whether it fits, estimates |

@@ -1,11 +1,11 @@
 ---
 title: "Integration"
-description: "A step-by-step guide to integrating the TiGrIS C99 runtime into your embedded application."
+description: "A step-by-step guide to integrating the TiGrIS C runtime into your embedded application."
 sidebar:
   order: 410
 ---
 
-Step-by-step guide to integrating the TiGrIS C99 runtime into your embedded application.
+Step-by-step guide to integrating the TiGrIS C runtime into your embedded application.
 
 ## 1. Add to your build
 
@@ -31,7 +31,7 @@ add_subdirectory(tigris-runtime)
 
 Without CMake, compile the runtime sources with
 `-DTIGRIS_OP_CONFIG='"/path/to/vww_kernels.h"'`. On Cortex-M7 at `-Os`, the VWW app
-with CMSIS-NN links 63,473 bytes of TiGrIS code instead of 107,430. A plan that needs a
+with CMSIS-NN links 68,827 bytes of TiGrIS code instead of 109,660. A plan that needs a
 kernel the build leaves out fails to load with `TIGRIS_ERR_KERNEL_DISABLED`.
 
 ## 2. Include headers
@@ -41,6 +41,7 @@ kernel the build leaves out fails to load with `TIGRIS_ERR_KERNEL_DISABLED`.
 #include "tigris_loader.h"
 #include "tigris_mem.h"
 #include "tigris_executor.h"
+#include "tigris_iface.h"            /* model inputs and outputs */
 #include "tigris_kernels_s8.h"       /* int8 reference backend */
 #include "tigris_kernels.h"          /* f32 reference backend */
 ```
@@ -59,9 +60,9 @@ if (err != TIGRIS_OK) {
 
 `plan_buf` is the `.tgrs` file content, either memory-mapped from flash or loaded into a buffer. The loader is zero-copy and zero-alloc: all pointers in `plan` refer directly into `plan_buf`. Keep `plan_buf` alive for the lifetime of `plan`.
 
-Align the plan base to `TIGRIS_TENSOR_ALIGN` when an optimized backend reads
-uncompressed XIP weights directly from it. This is 16 bytes on DSP-enabled
-Cortex-M (`__ARM_FEATURE_DSP`) and on ESP32-S3, where
+Align the plan base to 16 bytes when an optimized backend reads uncompressed
+XIP weights directly from it: CMSIS-NN on DSP-enabled Cortex-M
+(`__ARM_FEATURE_DSP`), and ESP-NN on ESP32-S3, where
 `tigris_esp_nn_prepare()` refuses a plan with misaligned weights. Give embedded arrays and linker sections an
 explicit alignment, and preserve it for custom flash mappings or loaded
 buffers.
@@ -92,13 +93,23 @@ if (merr != TIGRIS_MEM_OK) {
 }
 ```
 
-The compiled budget covers modeled activations. `tigris_fast_arena_required()`
-adds compressed-weight storage. Both helpers assume that the fast-buffer base
-satisfies `TIGRIS_TENSOR_ALIGN`; align the allocation rather than relying on
-extra capacity to absorb leading padding. For CMSIS-NN,
+`tigris_fast_arena_required()` returns the activation figure plus
+compressed-weight storage. For a plan of schema 11 or later the activation
+figure is the plan's scheduled peak, the fast bytes its largest stage or chain
+holds at once, and a run refuses a smaller fast arena with
+`TIGRIS_EXEC_ERR_MEM` before any stage runs. For an earlier plan it is the
+compiled budget, and the run is not checked up front. Both helpers assume that
+the fast-buffer base satisfies `TIGRIS_TENSOR_ALIGN`; align the allocation
+rather than relying on extra capacity to absorb leading padding. For CMSIS-NN,
 `tigris_cmsis_nn_fast_arena_required()` also adds the exact adapter workspace.
 Use the helper that matches the selected backend rather than reproducing its
 arithmetic in application code.
+
+When `tigris compile` and `analyze` print no `slow memory` row for a plan, it
+needs no slow buffer: pass `NULL` with a `slow_size` of 0. A generated core sets
+`<NAME>_CORE_SLOW_ARENA_BYTES` to 0 for such a plan. Give any other plan a slow
+buffer of at least the `slow memory` figure. The figure assumes the inputs are
+written as in step 6.
 
 ## 5. Prepare an accelerated backend
 
@@ -130,21 +141,34 @@ longer needed.
 
 ## 6. Set model inputs
 
-Allocate input tensors in the slow buffer and fill with your data:
+Hand each input to `tigris_input_write()` in the dtype the model declares. It
+converts the data and places the input with `tigris_input_alloc()`: in the fast
+arena when the plan reads its inputs in place (the condition is under
+[`tigris_input_alloc`](/runtime/api-reference/#tigris_input_alloc)), above room
+for the stage's decompressed weights, and in the slow buffer otherwise. Code that
+fills inputs itself, as generated code does, calls `tigris_input_alloc()` and
+writes the stored dtype into the buffer it places.
 
 ```c
 for (uint16_t i = 0; i < plan.header->num_model_inputs; i++) {
     uint16_t tidx = plan.model_inputs[i];
-    uint32_t sz = plan.tensors[tidx].size_bytes;
-    tigris_mem_error_t merr = tigris_mem_alloc_slow(&mem, tidx, sz);
-    if (merr != TIGRIS_MEM_OK) {
-        /* report tigris_mem_error_str(merr) and stop */
+    /* inputs[i]: your preprocessed data, tigris_iface_bytes(&plan, tidx) bytes */
+    tigris_error_t ierr = tigris_input_write(
+        &plan, &mem, tidx, inputs[i], tigris_iface_bytes(&plan, tidx));
+    if (ierr != TIGRIS_OK) {
+        /* TIGRIS_ERR_MEM: the arena cannot hold the input;
+           report tigris_error_str(ierr) and stop */
     }
-
-    int8_t *input = (int8_t *)mem.tensor_ptrs[tidx];
-    /* fill input with your preprocessed data */
 }
 ```
+
+Write the inputs one after another, so they sit together. A run consumes the
+inputs it reads in place: write every input again before the next run. An input
+the caller allocated beforehand with `tigris_mem_alloc_slow()` is filled where it
+is. A plan that reads its inputs in place then copies it instead, and the slow
+buffer must hold the inputs and the outputs, more than the `slow memory` figure.
+Inputs placed in the fast arena another way are read in place only when the
+room for the decompressed weights is free directly below them.
 
 ## 7. Run inference
 
@@ -193,7 +217,7 @@ eerr = tigris_run_with_state(&plan, &mem, tigris_dispatch_kernel_s8, NULL, &stat
 Each run reads the values the previous run left and writes back the ones it
 assigns. Call `tigris_state_init()` again to start over. The other entry points
 refuse a stateful plan with `TIGRIS_EXEC_ERR_STATE`. A `tigris codegen` core
-states the size as `<CORE>_STATE_BYTES` and runs through `<core>_run_with_state()`.
+states the size as `<NAME>_STATE_BYTES` and runs through `<name>_run_with_state()`.
 
 ### Executor limits and task-stack sizing
 
@@ -239,11 +263,14 @@ for (uint16_t i = 0; i < plan.header->num_model_outputs; i++) {
 }
 ```
 
-Model outputs are located in the slow buffer after inference completes.
+Model outputs are in the slow buffer after inference completes. A run that
+read its inputs in place leaves them in the fast arena, where they stay valid
+until the next allocation there: read them before writing the next inputs.
+`tigris_output_read()` converts an output to the dtype the model declares.
 
 ## Complete example
 
-Minimal POSIX integration that loads a plan from file, runs inference, and prints first output values. This example expects stored int8 inputs and outputs and uses the int8 reference backend. A float section output is stored as float32; check each tensor's dtype before casting it, or use `tigris_output_read()`. For a float32 plan, replace `tigris_dispatch_kernel_s8` with `tigris_dispatch_kernel`:
+Minimal POSIX integration that loads a plan from file, runs inference, and prints first output values. This example fills each input with bytes of 1 in the dtype the model declares, expects stored int8 outputs and uses the int8 reference backend. A float section output is stored as float32; check each tensor's dtype before casting it, or use `tigris_output_read()`. For a float32 plan, replace `tigris_dispatch_kernel_s8` with `tigris_dispatch_kernel`:
 
 ```c
 #define _POSIX_C_SOURCE 200112L
@@ -257,6 +284,7 @@ Minimal POSIX integration that loads a plan from file, runs inference, and print
 #include "tigris_loader.h"
 #include "tigris_mem.h"
 #include "tigris_executor.h"
+#include "tigris_iface.h"
 #include "tigris_kernels_s8.h"
 
 static tigris_executor_workspace_t executor_workspace;
@@ -346,17 +374,22 @@ int main(int argc, char **argv) {
         goto cleanup;
     }
 
-    /* Allocate and fill every model input. */
+    /* Write every model input; the runtime places it. */
     for (uint16_t i = 0; i < plan.header->num_model_inputs; i++) {
         uint16_t in_idx = plan.model_inputs[i];
-        merr = tigris_mem_alloc_slow(
-            &mem, in_idx, plan.tensors[in_idx].size_bytes);
-        if (merr != TIGRIS_MEM_OK) {
-            fprintf(stderr, "input allocation failed: %s\n",
-                    tigris_mem_error_str(merr));
+        uint32_t in_bytes = tigris_iface_bytes(&plan, in_idx);
+        void *input = in_bytes != 0 ? malloc(in_bytes) : NULL;
+        if (input == NULL) {
+            fprintf(stderr, "could not allocate input staging\n");
             goto cleanup;
         }
-        memset(mem.tensor_ptrs[in_idx], 1, plan.tensors[in_idx].size_bytes);
+        memset(input, 1, in_bytes);
+        err = tigris_input_write(&plan, &mem, in_idx, input, in_bytes);
+        free(input);
+        if (err != TIGRIS_OK) {
+            fprintf(stderr, "input write failed: %s\n", tigris_error_str(err));
+            goto cleanup;
+        }
     }
 
     tigris_exec_stats_t stats;

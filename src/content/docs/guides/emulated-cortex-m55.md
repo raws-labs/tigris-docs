@@ -90,12 +90,12 @@ A DS-CNN keyword spotter, small enough to be a single stage:
 BENCH_START DS-CNN @ Cortex-M55 (QEMU mps3-an547)
 Ops: 12  Stages: 1  Tensors: 13  Budget: 20480 bytes
 OUTPUT n=12 checksum=10244 min=-128 max=127 nonmin=9
-ARENA fast_peak=16496 slow_used=16 total_sram=16512 bytes (fast_cap=20480 slow_cap=65536)
+ARENA fast_peak=16000 slow_used=16 total_sram=16016 bytes (fast_cap=20480 slow_cap=65536)
 ```
 
 `fast_peak` is the high-water mark the runtime actually reached, not the
 capacity you gave it. It is the number to carry into a hardware decision: this
-model needs 16.5 KiB of SRAM, so it fits a part with 32 KiB and leaves room for
+model needs 15.6 KiB of SRAM, so it fits a part with 32 KiB and leaves room for
 everything else the firmware does.
 
 The same harness on MobileNetV2-0.35 at 224x224 shows why tiling is worth
@@ -105,12 +105,12 @@ having:
 BENCH_START MobileNetV2-0.35 @ Cortex-M55 (QEMU mps3-an547)
 Ops: 65  Stages: 17  Tensors: 66  Budget: 131072 bytes
 OUTPUT n=10 checksum=4869 min=-128 max=127 nonmin=6
-ARENA fast_peak=130176 slow_used=16 total_sram=130192 bytes (fast_cap=131072 slow_cap=262144)
+ARENA fast_peak=129472 slow_used=16 total_sram=129488 bytes (fast_cap=131072 slow_cap=262144)
 ```
 
 That model's unscheduled peak is 735.00 KiB, with a single 1x48x112x112 activation
 accounting for 588.00 KiB of it. Seventeen stages bring the working set down to
-130,192 bytes, on-chip, with the slow tier barely touched. A runtime that
+129,488 bytes, on-chip, with the slow tier barely touched. A runtime that
 allocates one contiguous arena needs the full 735 KiB and does not run here at
 all.
 

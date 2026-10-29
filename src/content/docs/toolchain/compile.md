@@ -24,7 +24,7 @@ tigris compile MODEL -m FAST [-m SLOW] [-f FLASH] [-c lz4] [--xip] [-o PLAN]
 | `-o`, `--output` | path | Plan to write; defaults to `MODEL.tgrs` |
 | `-f`, `--flash` | size | Flash for the plan; no plan is written when it is larger |
 | `-c`, `--compress` | `none`, `lz4` | Compress weights per stage (default `none`) |
-| `--xip` | flag | Read weights in place from flash at run time instead of copying them to RAM |
+| `--xip` | flag | Mark an execute-in-place deployment, with the plan placed in flash; see [Execute in place](#execute-in-place) |
 | `--input-shape` | `NAME:1x3x224x224`, repeatable | Shape for an input the model leaves open; an open dimension is otherwise bound to 1 |
 | `--keep-names` | flag | Keep every operator and tensor name in the plan for `inspect`; by default the plan names only the model, its inputs and its outputs |
 
@@ -44,21 +44,22 @@ vww_96_int8.tflite   int8, 31 operators
 fits 32.00 KiB fast memory, 8 stages, 7 tiled
 
 memory
-  TFLite Micro tensors   72.00 KiB   its planner; kernel scratch excluded
-  unscheduled            54.00 KiB
-  largest tensor         36.00 KiB   1x48x48x16
-  this plan              28.22 KiB   3.78 KiB headroom
-  slow memory            45.00 KiB   budget 1.00 MiB
+  TFLite Micro arena   72.00 KiB   its planner and reduction scratch; persistent allocations and other kernel scratch excluded
+  unscheduled          54.00 KiB
+  largest tensor       36.00 KiB   1x48x48x16
+  this plan            28.22 KiB   3.78 KiB headroom
+  slow memory          45.00 KiB   budget 1.00 MiB
 
 flash
-  plan   239.31 KiB   weights 213.93 KiB, overhead 25.38 KiB
+  plan   239.32 KiB   weights 213.93 KiB, overhead 25.39 KiB
 
-wrote vww.tgrs   239.31 KiB
+wrote vww.tgrs   239.32 KiB
 ```
 
 The report is `analyze`'s without the rows that need extra work: no other budgets
-are tried, the slow traffic is not measured and LZ4 compression is not tried. Use
-`analyze` for those, and [`inspect`](/toolchain/inspect/) to read the plan back.
+are tried, the slow traffic is not measured, LZ4 compression is not tried and the
+[`tigris export`](/toolchain/export/) search behind the `TFLite Micro export` row is
+not run. Use `analyze` for those, and [`inspect`](/toolchain/inspect/) to read the plan back.
 
 ## When no plan is written
 
@@ -66,19 +67,25 @@ are tried, the slow traffic is not measured and LZ4 compression is not tried. Us
 The verdict line says which one:
 
 ```text
-does not fit 1.00 KiB fast memory: 8 stages exceed it
+does not fit 1.00 KiB fast memory: 7 stages exceed it
 ```
 
 ```text
 fits 32.00 KiB fast memory, 8 stages, 7 tiled; slow memory 45.00 KiB needed, 16.00 KiB given
 ```
 
-Each ends with `Error: no plan written`. Two more checks come after the schedule:
+Each ends with `Error: no plan written`. More checks come after the schedule: the
+flash budget, and with `-c lz4` the fast memory the decompressed weights take:
 
 ```text
-Error: no plan written: the plan is 3.36 MiB, the flash budget is 1.00 MiB
+Error: no plan written: the plan is 89.64 KiB, the flash budget is 64.00 KiB
 Error: no plan written: decompressed weights need 88.31 KiB of fast memory, the budget is 64.00 KiB
 ```
+
+Last, the host runtime's loader reads the plan as a target would, and `compile`
+writes nothing when it refuses it:
+`Error: no plan written: the runtime loader refuses the plan: REASON`. Without a
+host runtime in the install, this check is skipped.
 
 [When a Model Does Not Fit](/guides/model-does-not-fit/) covers what to change.
 
@@ -90,7 +97,8 @@ names the model and its inputs and outputs, which is all the runtime and generat
 code read; `--keep-names` also keeps the operator and intermediate tensor names, at
 about 14 KiB for the MLPerf Tiny VWW model, so that
 [`inspect -v`](/toolchain/inspect/) can show them. It is data, not code: the runtime reads it in place and executes it in the fast and
-slow buffers the application supplies, without a general-purpose allocator. The
+slow buffers the application supplies, without a general-purpose allocator. Plans
+from this release are schema 11 and need a runtime of this release or later. The
 same plan runs on every kernel backend; [`codegen`](/toolchain/codegen/) picks one.
 [Compilation Pipeline](/architecture/pipeline/) describes how the compiler gets
 there.
@@ -116,7 +124,7 @@ tigris compile ds_cnn.onnx -m 128K -c lz4 -f 4M -o ds_cnn.tgrs
 ```
 
 ```text
-wrote ds_cnn.tgrs   88.44 KiB, LZ4, 66.50 KiB of the 128.00 KiB fast memory holds decompressed weights
+wrote ds_cnn.tgrs   88.46 KiB, LZ4, 66.50 KiB of the 128.00 KiB fast memory holds decompressed weights
 ```
 
 Size the application's fast arena with `tigris_fast_arena_required(&plan)`,

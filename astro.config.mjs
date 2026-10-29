@@ -21,7 +21,7 @@ export default defineConfig({
     starlight({
       title: "TiGrIS",
       description:
-        "Tiled Graph Inference Scheduler — run ML models on embedded devices.",
+        "Tiled Graph Inference Scheduler: run ML models on embedded devices.",
       // "Edit page" link at the bottom of each doc → the docs repo.
       editLink: {
         baseUrl: "https://github.com/raws-labs/tigris-docs/edit/main/",
@@ -33,7 +33,7 @@ export default defineConfig({
         starlightLlmsTxt({
           projectName: "TiGrIS",
           description:
-            "Tiled Graph Inference Scheduler — an ahead-of-time compiler and C99 runtime for running ML models on memory-constrained embedded devices.",
+            "Tiled Graph Inference Scheduler: an ahead-of-time compiler and C runtime for running ML models on memory-constrained embedded devices.",
         }),
         // Click-to-zoom for images (architecture/tiling diagrams).
         starlightImageZoom(),

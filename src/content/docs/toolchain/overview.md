@@ -1,12 +1,12 @@
 ---
 title: "CLI Overview"
-description: "The tigris command line: six commands, each answering one question about a model, with flags that add depth instead of more commands."
+description: "The tigris command line: seven commands, each answering one question about a model, with flags that add depth instead of more commands."
 sidebar:
   order: 200
   label: "Overview"
 ---
 
-`tigris` has six commands. Each one answers one question about a model or a plan,
+`tigris` has seven commands. Each one answers one question about a model or a plan,
 and flags take the same command further instead of adding commands.
 
 | Question | Command |
@@ -18,6 +18,7 @@ and flags take the same command further instead of adding commands.
 | What does the plan compute on my machine? | [`tigris run`](/toolchain/run/) |
 | Give me the C code for my target. | [`tigris codegen`](/toolchain/codegen/) |
 | Is there a precompiled model I can start from? | [`tigris zoo`](/toolchain/zoo/) |
+| Can TFLite Micro run my TFLite model in less memory? | [`tigris export`](/toolchain/export/) |
 
 ## A session
 
@@ -89,6 +90,7 @@ The format is read from the file contents, so the extension does not matter.
 | `inspect` | yes | yes | yes |
 | `analyze`, `compile` | yes | yes | |
 | `run`, `codegen` | | | yes |
+| `export` | | yes | |
 
 ## Output
 
@@ -97,17 +99,18 @@ The format is read from the file contents, so the extension does not matter.
 - `compile` exits with status 1 and writes no file when the plan does not fit a
   budget it was given. `analyze` exits 0 whenever it can read the model, whatever
   the verdict; read the verdict line or `--json` to act on it. A file that cannot
-  be read exits with 1, a wrong flag or a missing file with 2.
+  be read exits with 1, a wrong flag or a missing file with 2. `export` exits
+  with 1 when it writes no model, and the error names the reason.
 - Colors appear only on a terminal. Set `NO_COLOR` to turn them off there too.
 - JSON documents carry a version: `report` and `version` in `analyze --json`,
   `inspection_version` in `inspect --json`. Check it before reading further.
 
 `tigris --version` prints the compiler version and the host runtime it loads.
 
-## Replaced commands
+## Removed commands
 
-Two older commands still run, print a note on standard error and are removed in
-the next release:
+`tigris plan` and `tigris simulate` are removed and end with
+`Error: No such command`. Use these instead:
 
 | Instead of | Use |
 |---|---|

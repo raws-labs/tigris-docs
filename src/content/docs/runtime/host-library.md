@@ -9,7 +9,9 @@ sidebar:
 server machines. Unlike the embedded runtime, which works in arenas the caller
 owns, it allocates everything itself behind an opaque session. It is what
 [`tigris run`](/toolchain/run/) and `tigris.runtime.Session` call, and it is
-bundled in the platform wheels of `tigris-ml`.
+bundled in the platform wheels of `tigris-ml`. When the library is available,
+`tigris compile` also loads every plan it writes with its loader and writes no
+plan the loader refuses.
 
 It runs the portable float32 and int8 reference kernels. A successful run shows
 that a plan loads and executes on that path; output correctness takes a
@@ -67,6 +69,20 @@ void        tigris_host_destroy(tigris_host_t *host);
 workspace. A `slow_capacity` of 0 selects a conservative host allocation; it is
 not a slow-memory requirement from the compiler. An int8 plan can also execute
 float32 sections between Dequantize and Quantize or a float model output.
+
+### Check
+
+```c
+const char *tigris_host_check(const void *data, uint32_t size, uint16_t *required);
+```
+
+Loads a plan as a target's loader does, without creating a session. It returns
+`NULL` when the plan loads and the loader's error message otherwise. The library
+is built with every `TIGRIS_MAX_*` limit at 65535, so a refusal is never about
+the build. When `required` is not NULL, its five entries receive what the plan
+asks of a target build: tensors, stage inputs, stage outputs, chain stages and
+spatial operators per chained stage, as `TIGRIS_MAX_*` values; all zero when the
+plan is refused.
 
 ### Interface
 
@@ -129,11 +145,18 @@ The peaks cover the execution arenas, not the process memory.
 
 ```c
 const char *tigris_host_reset_state(tigris_host_t *host);
+uint32_t    tigris_host_state_bytes(const tigris_host_t *host);
+const char *tigris_host_save_state(const tigris_host_t *host, void *state, uint32_t size);
+const char *tigris_host_restore_state(tigris_host_t *host, const void *state, uint32_t size);
 ```
 
-A session keeps a stateful plan's variables from one run to the next. This
-returns every variable to its initial value. A stateless plan has nothing to
-reset.
+A session keeps a stateful plan's variables from one run to the next.
+`tigris_host_reset_state` returns every variable to its initial value. A
+stateless plan has nothing to reset. `tigris_host_state_bytes` is the size of
+those variables, 0 for a stateless plan. `tigris_host_save_state` copies them
+into a caller-owned buffer of exactly that size, and
+`tigris_host_restore_state` copies them back, so the next run starts from the
+saved values.
 
 ### Trace
 

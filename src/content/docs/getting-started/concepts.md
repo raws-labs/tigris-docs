@@ -12,13 +12,13 @@ The key ideas behind how TiGrIS compiles and executes models on memory-constrain
 A `.tgrs` file is a binary artifact containing the compiler-chosen operator schedule, stage and tiling strategy, tensor metadata, memory budget, and weights. It is not code, but a data structure that the C runtime interprets. One plan can run on any target that has a compatible kernel backend.
 
 ```
-ds_cnn.tgrs (26 KB)
+ds_cnn_i8.tgrs (30 KiB)
 +-- header        magic, version, memory requirements
 +-- stages[]      ordered list of execution stages
 |   +-- ops[]     operator descriptors (type, params, tensor refs)
 +-- tile plans    compiler-chosen streaming strategy and bounds
 +-- tensors[]     shapes, dtypes, and sizes
-+-- weights       model weights (f32 or int8), read via XIP or copied to SRAM
++-- weights       model weights (f32 or int8), read in place or decompressed to SRAM
 ```
 
 The plan fixes the execution order and bounds, but it does not contain absolute
@@ -56,7 +56,9 @@ and can compact before retrying an allocation. It may overflow an allocation to
 the slow arena where that execution path permits. Between stages, intermediate
 tensors that are still needed later spill to PSRAM and reload when consumed. If
 the available fast and slow capacity cannot satisfy an operation,
-`tigris_run()` returns `TIGRIS_EXEC_ERR_MEM`.
+`tigris_run()` returns `TIGRIS_EXEC_ERR_MEM`. A plan of schema 11 or later states
+the fast memory its largest stage or chain holds, and its run refuses a fast arena
+below `tigris_fast_arena_required()` with that error before any stage runs.
 
 A small model whose peak activation fits within the SRAM budget compiles into a single stage with no spilling. A larger model whose activations exceed the budget compiles into multiple stages with spill/reload between them.
 
@@ -66,7 +68,7 @@ The compiler uses three tiling strategies to fit models into limited SRAM:
 
 **Temporal partitioning.** The compiler splits the model graph into stages whose combined activations fit in SRAM. Between stages, intermediate tensors spill to PSRAM and reload when needed. This is the coarsest strategy and applies automatically when the full model does not fit.
 
-**Spatial tiling.** When a single stage's peak activation still exceeds the SRAM budget, the compiler tiles along the height dimension, processing horizontal strips instead of the full output tensor. Each strip only needs its receptive-field input rows plus halo overlap.
+**Spatial tiling.** When a single stage's peak activation still exceeds the SRAM budget, the compiler tiles along the height dimension, processing horizontal strips instead of the full output tensor. Each strip only needs its receptive-field input rows plus halo overlap. When no strip fits, or when tiles of rows and columns load fewer input bytes than the strips, the compiler tiles height and width together.
 
 **Chain tiling.** When consecutive stages are all spatially tileable, the compiler fuses them into a chain. Tiles flow through the entire chain in SRAM, so intermediate tensors are never fully materialized and never hit PSRAM. This is the lowest-overhead strategy but requires every operator in the chain to support spatial decomposition.
 
