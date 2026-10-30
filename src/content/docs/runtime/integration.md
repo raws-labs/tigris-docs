@@ -16,7 +16,7 @@ add_subdirectory(tigris-runtime)
 target_link_libraries(my_app PRIVATE tigris_runtime)
 ```
 
-**Manual:** Copy `tigris-runtime/src/` and `tigris-runtime/include/` into your project. Add the source files to your build system and set the include path.
+**Manual:** Copy `tigris-runtime/src/` and `tigris-runtime/include/` into your project. Add the source files to your build system and set the include path. With GCC and Clang the runtime's CMake build compiles the runtime with `-ffp-contract=off`; a build that compiles `src/*.c` itself with those compilers needs the same flag.
 
 ### Link only the kernels a plan uses
 
