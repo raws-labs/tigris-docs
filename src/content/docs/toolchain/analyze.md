@@ -27,6 +27,7 @@ tigris analyze MODEL -m FAST [-m SLOW] [-f FLASH] [-v | --trace | --json]
 | `--trace` | flag | Runs the plan on the host runtime and reports what it did instead |
 | `--input` | path, repeatable | Input for `--trace`: `.bin` or `.npy`, `NAME=FILE` for several; zeros when omitted |
 | `--input-shape` | `NAME:1x3x224x224`, repeatable | Shape for an input the model leaves open; an open dimension is otherwise bound to 1 |
+| `--int8-io` | flag | Analyze the plan with its quantized inputs and outputs declared int8, as [`compile --int8-io`](/toolchain/compile/#model-interface) writes it |
 
 Sizes and the two memory pools are explained in the
 [CLI overview](/toolchain/overview/#memory-budgets).
@@ -39,8 +40,8 @@ tigris analyze vww_96_int8.tflite -m 32K -m 1M -f 1M
 
 ```text
 vww_96_int8.tflite   int8, 31 operators
-  input    input_1_int8    1x96x96x3 int8
-  output   Identity_int8   1x2 int8
+  input    input_1_int8    1x96x96x3 int8 at scale 0.00392157, zero point -128
+  output   Identity_int8   1x2 int8 at scale 0.00390625, zero point -128
 fits 32.00 KiB fast memory, 8 stages, 7 tiled
 
 memory
