@@ -25,9 +25,10 @@ tigris_error_t tigris_plan_load(
 Parse a `.tgrs` binary plan from a buffer. Zero-copy, zero-alloc: all pointers in `out_plan` point directly into `buf`. The caller must keep `buf` alive for the lifetime of `out_plan`.
 
 The loader accepts plan schemas from `TIGRIS_SCHEMA_VERSION_MIN` (4) to
-`TIGRIS_SCHEMA_VERSION` (11) and refuses any other with
-`TIGRIS_ERR_BAD_VERSION`. It validates the structure, tensor metadata and
-built-in operator semantics of every schema it accepts.
+`TIGRIS_SCHEMA_VERSION` (12) and refuses any other with
+`TIGRIS_ERR_BAD_VERSION`. From schema 12 it also refuses a header flag it does
+not know with `TIGRIS_ERR_BAD_VERSION`. It validates the structure, tensor
+metadata and built-in operator semantics of every schema it accepts.
 
 For uncompressed XIP plans used with optimized CMSIS-NN kernels, `buf` must be
 aligned to 16 bytes, whatever `TIGRIS_TENSOR_ALIGN` is. Weight offsets are
@@ -256,9 +257,14 @@ tigris_error_t tigris_input_write(
 Convert `src` into the model input tensor. An input with no buffer yet is
 placed with [`tigris_input_alloc()`](#tigris_input_alloc) first, and its errors
 are returned as they are. A buffer the caller allocated beforehand is used as
-it is. `src_bytes` must equal `tigris_iface_bytes()`. Returns
-`TIGRIS_ERR_BAD_INTERFACE` when the declared dtype has no conversion to what
-the plan stores, so an unsupported interface fails rather than being
+it is. `src_bytes` must equal `tigris_iface_bytes()`. A float32 input is
+divided by its scale in float32, rounded as the plan states, offset by its zero
+point and clamped to int8. A plan of schema 12 or later with
+`TIGRIS_FLAG_QUANTIZE_TIES_EVEN` set rounds ties to even, as ONNX's
+`QuantizeLinear` does; every other plan rounds half away from zero, as TFLite's
+`QUANTIZE` does.
+Returns `TIGRIS_ERR_BAD_INTERFACE` when the declared dtype has no conversion to
+what the plan stores, so an unsupported interface fails rather than being
 approximated.
 
 ### tigris_output_read
@@ -750,7 +756,7 @@ path: normal, tiled, chained and control flow.
 | -1 | `TIGRIS_ERR_NULL` | Null pointer argument |
 | -2 | `TIGRIS_ERR_TOO_SMALL` | Buffer smaller than header |
 | -3 | `TIGRIS_ERR_BAD_MAGIC` | Invalid magic bytes |
-| -4 | `TIGRIS_ERR_BAD_VERSION` | Unsupported schema version |
+| -4 | `TIGRIS_ERR_BAD_VERSION` | Unsupported schema version or header flag |
 | -5 | `TIGRIS_ERR_BAD_SIZE` | file_size field != buf_len |
 | -6 | `TIGRIS_ERR_BAD_SECTION` | Section offset out of bounds |
 | -7 | `TIGRIS_ERR_MISSING_SEC` | Required section not found |

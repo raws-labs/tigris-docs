@@ -76,8 +76,8 @@ tigris analyze vww_96_int8.tflite -m 32K -m 1M
 
 ```text
 vww_96_int8.tflite   int8, 31 operators
-  input    input_1_int8    1x96x96x3 int8
-  output   Identity_int8   1x2 int8
+  input    input_1_int8    1x96x96x3 int8 at scale 0.00392157, zero point -128
+  output   Identity_int8   1x2 int8 at scale 0.00390625, zero point -128
 fits 32.00 KiB fast memory, 8 stages, 7 tiled
 
 memory

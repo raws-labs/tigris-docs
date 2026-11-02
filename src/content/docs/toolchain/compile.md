@@ -27,6 +27,7 @@ tigris compile MODEL -m FAST [-m SLOW] [-f FLASH] [-c lz4] [--xip] [-o PLAN]
 | `--xip` | flag | Mark an execute-in-place deployment, with the plan placed in flash; see [Execute in place](#execute-in-place) |
 | `--input-shape` | `NAME:1x3x224x224`, repeatable | Shape for an input the model leaves open; an open dimension is otherwise bound to 1 |
 | `--keep-names` | flag | Keep every operator and tensor name in the plan for `inspect`; by default the plan names only the model, its inputs and its outputs |
+| `--int8-io` | flag | Hand over model inputs and read back outputs in the plan's int8 encoding; the application quantizes and dequantizes. See [Model interface](#model-interface) |
 
 Sizes and the two memory pools are explained in the
 [CLI overview](/toolchain/overview/#memory-budgets).
@@ -39,8 +40,8 @@ tigris compile vww_96_int8.tflite -m 32K -m 1M -o vww.tgrs
 
 ```text
 vww_96_int8.tflite   int8, 31 operators
-  input    input_1_int8    1x96x96x3 int8
-  output   Identity_int8   1x2 int8
+  input    input_1_int8    1x96x96x3 int8 at scale 0.00392157, zero point -128
+  output   Identity_int8   1x2 int8 at scale 0.00390625, zero point -128
 fits 32.00 KiB fast memory, 8 stages, 7 tiled
 
 memory
@@ -98,10 +99,29 @@ code read; `--keep-names` also keeps the operator and intermediate tensor names,
 about 14 KiB for the MLPerf Tiny VWW model, so that
 [`inspect -v`](/toolchain/inspect/) can show them. It is data, not code: the runtime reads it in place and executes it in the fast and
 slow buffers the application supplies, without a general-purpose allocator. Plans
-from this release are schema 11 and need a runtime of this release or later. The
+from this release are schema 12 and need a runtime of this release or later. The
 same plan runs on every kernel backend; [`codegen`](/toolchain/codegen/) picks one.
 [Compilation Pipeline](/architecture/pipeline/) describes how the compiler gets
 there.
+
+## Model interface
+
+A plan stores a quantized model's inputs and outputs as int8, at the scale and
+zero point the summary prints. When the model declares float32 at a boundary,
+`tigris_input_write()` quantizes the caller's data by the rule of the model's
+source: a float32 division by the scale, rounded with ties to even as ONNX's
+`QuantizeLinear` does, or half away from zero as TFLite's `QUANTIZE` does for a
+`.tflite` model. The plan records the rule, so a float32 input quantizes
+exactly as the source framework quantizes it.
+`tigris_output_read()` dequantizes an output the model declares float32.
+
+`--int8-io` declares those boundaries int8 instead. The application supplies
+and reads back int8 data at the printed scale and zero point, and quantizes with
+the rule its own pipeline uses. Boundaries the plan stores in another dtype,
+such as int64 indices or float32 section results, keep the dtype the model
+declares. When no input or output is stored as quantized int8, or every one is
+already declared int8, the option changes nothing and `compile` stops with an
+error.
 
 ## Execute in place
 

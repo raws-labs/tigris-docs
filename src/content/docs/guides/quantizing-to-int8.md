@@ -105,7 +105,9 @@ flash
 Note the input and output rows. The model declares float32 at both ends.
 The input is stored as int8 and converted at the boundary; the output is a
 float32 section result. An application hands over and reads back float32
-either way. Quantizing does not change the interface your code talks to.
+either way. Quantizing does not change the interface your code talks to. To
+hand over int8 data instead, compile with
+[`--int8-io`](/toolchain/compile/#model-interface).
 
 ## Per-channel or per-tensor
 
