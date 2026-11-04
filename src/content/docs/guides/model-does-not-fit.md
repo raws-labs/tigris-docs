@@ -31,9 +31,7 @@ memory
   this plan         250.00 KiB   6.00 KiB headroom
   slow memory         5.17 MiB
   slow traffic       20.25 MiB   per inference: 7.21 MiB written, 13.04 MiB read
-  also fits at      128.00 KiB   64 stages, 62 tiled
-  also fits at       64.00 KiB   64 stages, 63 tiled
-  does not fit at    32.00 KiB
+  smallest budget    37.50 KiB   37.47 KiB does not fit
 
 flash
   plan      13.31 MiB   weights 13.30 MiB, overhead 8.32 KiB
@@ -56,8 +54,8 @@ budget raises the figure and lowers the stage count:
 | 512K | 504.88 KiB | 43 | 38 |
 | 1M | 990.50 KiB | 17 | 15 |
 
-So this figure does not tell you whether a smaller part would work. The `also fits at`
-rows do, and the floor appears once the budget is too small.
+So this figure does not tell you whether a smaller part would work. The `smallest budget`
+row does: 37.50 KiB fits, 32 bytes less does not.
 
 ## The three ways a compile fails
 
@@ -73,9 +71,9 @@ does not fit 32.00 KiB fast memory: 3 stages exceed it
 ```
 
 Each line is a stage the solver has already shrunk to its smallest tile, with the fast
-memory that tile still needs. The first line is the floor: no budget below 37.50 KiB
-compiles, and the `fits at` row below the verdict names the next budget that does.
-`compile` prints the same summary and ends with `Error: no plan written`.
+memory that tile still needs. The first line is the floor, and the `smallest budget` row
+under `memory` confirms it: 37.50 KiB fits, 37.47 KiB does not. `analyze` exits with status
+1 here; `compile` prints the same summary and ends with `Error: no plan written`.
 
 Stages 51, 55 and 59 are 960-channel depthwise convolutions, which tile in both
 height and width; their smallest tile reads a 3x3x960 window and writes 960 outputs,
@@ -172,9 +170,7 @@ memory
   this plan         62.50 KiB   1.50 KiB headroom
   slow memory        1.29 MiB
   slow traffic       5.07 MiB   per inference: 1.80 MiB written, 3.26 MiB read
-  also fits at      32.00 KiB   64 stages, 62 tiled
-  also fits at      16.00 KiB   64 stages, 63 tiled
-  does not fit at    8.00 KiB
+  smallest budget    9.38 KiB   9.34 KiB does not fit
 
 flash
   plan   3.39 MiB   weights 3.38 MiB, overhead 10.36 KiB

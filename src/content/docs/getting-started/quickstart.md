@@ -88,9 +88,7 @@ memory
   this plan              28.22 KiB   3.78 KiB headroom
   slow memory            45.00 KiB   budget 1.00 MiB
   slow traffic          109.13 KiB   per inference: 18.00 KiB written, 91.12 KiB read
-  also fits at           16.00 KiB   12 stages, 11 tiled
-  also fits at            8.00 KiB   24 stages, 23 tiled
-  also fits at            4.00 KiB   28 stages, 27 tiled
+  smallest budget         2.50 KiB   with 1.00 MiB slow memory; 2.47 KiB does not fit
 
 flash
   plan   239.32 KiB   weights 213.93 KiB, overhead 25.39 KiB
@@ -100,8 +98,9 @@ The first `-m` is fast memory, the second slow memory. The verdict line says the
 model fits: the compiler split it into 8 stages and tiled 7 of them, so the plan
 needs 28.22 KiB of fast memory where TFLite Micro's planner places 72 KiB of tensors
 in one arena. The tensors that pass between stages wait in slow memory, 45 KiB of it,
-and moving them costs 109.13 KiB of traffic per inference. The `also fits at` rows
-show how far the budget can go down: to 4 KiB, with more stages and more traffic.
+and moving them costs 109.13 KiB of traffic per inference. The `smallest budget` row
+shows how far the budget can go down: 2.50 KiB fits with the same slow memory, 2.47 KiB
+does not.
 The `TFLite Micro export` row is for a model that stays on TFLite Micro:
 [`tigris export`](/toolchain/export/) rewrites the file so that TFLite Micro's own
 arena needs 24.69 KiB less.
@@ -140,7 +139,7 @@ tigris compile vww_96_int8.tflite -m 32K -m 1M -o vww.tgrs
 ```
 
 `compile` prints the same report without the rows that take extra compiles or a
-run (`TFLite Micro export`, `slow traffic`, `also fits at`) and ends with:
+run (`TFLite Micro export`, `slow traffic`, `smallest budget`) and ends with:
 
 ```text
 wrote vww.tgrs   239.32 KiB

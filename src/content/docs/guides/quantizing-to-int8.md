@@ -94,9 +94,7 @@ memory
   this plan         62.50 KiB   1.50 KiB headroom
   slow memory        1.29 MiB
   slow traffic       5.07 MiB   per inference: 1.80 MiB written, 3.26 MiB read
-  also fits at      32.00 KiB   64 stages, 62 tiled
-  also fits at      16.00 KiB   64 stages, 63 tiled
-  does not fit at    8.00 KiB
+  smallest budget    9.38 KiB   9.34 KiB does not fit
 
 flash
   plan   3.39 MiB   weights 3.38 MiB, overhead 10.36 KiB
