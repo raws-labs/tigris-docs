@@ -97,10 +97,11 @@ The format is read from the file contents, so the extension does not matter.
 - The report goes to standard output. Warnings start with `warning:` and errors
   with `Error:`, both on standard error.
 - `compile` exits with status 1 and writes no file when the plan does not fit a
-  budget it was given. `analyze` exits with 1 exactly when `compile` with the same
-  options would write no plan, and 0 otherwise. A file that cannot be read exits
-  with 1, a wrong flag or a missing file with 2. `export` exits with 1 when it
-  writes no model, and the error names the reason.
+  budget it was given. With `-m`, `analyze` exits with 1 exactly when `compile`
+  with the same options would write no plan, and 0 otherwise; without `-m`, it exits
+  with 1 when `compile` would write no plan at any fast budget. A file that
+  cannot be read exits with 1, a wrong flag or a missing file with 2. `export`
+  exits with 1 when it writes no model, and the error names the reason.
 - Colors appear only on a terminal. Set `NO_COLOR` to turn them off there too.
 - JSON documents carry a version: `report` and `version` in `analyze --json`,
   `inspection_version` in `inspect --json`. Check it before reading further.

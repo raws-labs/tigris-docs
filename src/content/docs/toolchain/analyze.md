@@ -15,8 +15,9 @@ and see what it did.
 tigris analyze MODEL -m FAST [-m SLOW] [-f FLASH] [-v | --trace | --json]
 ```
 
-`analyze` exits 1 when `compile` with the same options would write no plan, and 0 otherwise,
-so a build can use it as a fit check. It also searches for the smallest fast budget that fits,
+With `-m`, `analyze` exits 1 when `compile` with the same options would write no plan, and 0
+otherwise, so a build can use it as a fit check. Without `-m`, it exits 1 when `compile` would
+write no plan at any fast budget. It also searches for the smallest fast budget that fits,
 to 32 bytes, with the slow memory given or unbounded without one.
 
 ## Options
@@ -100,7 +101,7 @@ change in each case.
 | `this plan` | The fast memory the plan uses, and the headroom left in the budget. |
 | `slow memory` | What the tensors that cross stage boundaries need in the slow pool. |
 | `slow traffic` | Bytes written to and read back from slow memory in one inference, measured by running the plan once on the host runtime. It reads `not measured` with the reason when there is no host runtime or when a `While` loop's iteration count depends on the input values. It is absent when the plan does not fit the slow budget. |
-| `smallest budget` | The smallest fast budget that fits, to 32 bytes, with the slow memory given or unbounded without one, and the budget 32 bytes below it, which does not fit. `none` when no fast budget fits the slow memory given. Each budget tried is a full compile. |
+| `smallest budget` | The smallest fast budget that fits, to 32 bytes, with the slow memory given or unbounded without one, and the budget 32 bytes below it, which does not fit. `none` when `compile` writes no plan at any fast budget, with the reason: the slow memory given, the flash budget, or the runtime loader. Each budget tried is a full compile. |
 
 ### Flash
 
@@ -233,7 +234,7 @@ then these sections:
 | `slow` | Budget, peak, whether it fits, measured `traffic` as `written` and `read` bytes or `null` |
 | `flash` | Budget, weight and plan bytes, whether it fits, estimates |
 | `runtime_build` | Each build limit the plan needs above its default, with `name`, `needed` and `default`; empty when the defaults suffice |
-| `smallest_fit` | The `smallest budget` row as `budget_bytes`, `below_bytes` and `slow_budget_bytes`; `budget_bytes` is `null` when no fast budget fits, and the whole field is `null` when the model cannot compile |
+| `smallest_fit` | The `smallest budget` row as `budget_bytes`, `below_bytes` and `slow_budget_bytes`; `budget_bytes` is `null` when no fast budget fits, with `reason` `memory`, `flash` or `loader`, and the whole field is `null` when the model cannot compile |
 | `stages` | One entry per stage |
 
 Sizes are in bytes. A field that does not apply is `null`.
