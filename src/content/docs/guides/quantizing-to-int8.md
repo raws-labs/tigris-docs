@@ -15,6 +15,8 @@ TiGrIS reads ONNX QDQ models directly, so quantizing is something you do to the
 model before the compiler sees it. This page covers what the compiler requires,
 the settings that decide whether a quantized model compiles at all, and how to
 check the result.
+To quantize in PyTorch before the export, see
+[Compiling a PyTorch Model](/guides/pytorch-models/).
 
 ## What TiGrIS requires
 

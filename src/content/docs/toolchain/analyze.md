@@ -67,7 +67,8 @@ flash
 ### Verdict
 
 The first block names the model, its inputs and outputs in the axis order the
-caller hands over, and the verdict:
+model declares, and the verdict. [`inspect`](/toolchain/inspect/) on the compiled
+plan shows the order the caller hands over:
 
 | Verdict | Meaning |
 |---|---|
