@@ -21,12 +21,15 @@ other QDQ model. No conversion tool and no graph rewrite sits in between.
 ## Install
 
 ```bash
-pip install torch==2.15.0 torchvision executorch==1.5.1 tosa-tools==2026.5.0 onnxscript tigris-ml
+pip install torch==2.15.0 torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install executorch==1.5.1 tosa-tools==2026.5.0 onnxscript tigris-ml
 ```
 
-The `executorch` package does not declare `torch`, so it is listed here. Its
-Cortex-M quantizer imports Arm's TOSA serializer, which the package installs
-only with its Ethos-U and VGF extras; without `tosa-tools` the import fails with
+The first line installs PyTorch's CPU-only build; the default Linux wheel on
+PyPI also installs the CUDA libraries. The `executorch` package does not declare
+`torch`, so it is listed here. Its Cortex-M quantizer imports Arm's TOSA
+serializer, which the package installs only with its Ethos-U and VGF extras;
+without `tosa-tools` the import fails with
 `ModuleNotFoundError: No module named 'tosa_serializer'`. `onnxscript` is what
 `torch.onnx.export(..., dynamo=True)` needs. These versions are the ones this
 page was checked with.
