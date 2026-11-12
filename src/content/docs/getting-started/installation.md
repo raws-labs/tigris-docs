@@ -36,15 +36,15 @@ No native runtime is downloaded separately during installation or execution.
 
 ### Development install
 
-Clone the repo and install with dev extras for testing:
+Clone the repo and install the development dependencies (pip 25.1 or later):
 
 ```bash
 git clone https://github.com/raws-labs/tigris.git
 cd tigris
-pip install -e ".[dev]"
+pip install -e . --group dev
 ```
 
-The `[dev]` extra adds `pytest` and `onnxruntime` (used for reference output validation).
+The `dev` group adds `pytest` and `onnxruntime` (used for reference output validation).
 
 ### Verify
 
