@@ -27,7 +27,7 @@ NUCLEO-F446RE and the Raspberry Pi Pico 2 (RP2350).
 ## Prerequisites
 
 - Python 3.10+ with `tigris-ml` installed (`pip install tigris-ml`)
-- The Arm GNU toolchain (`arm-none-eabi-gcc`) and CMake 3.20+
+- The Arm GNU toolchain (`arm-none-eabi-gcc`) and CMake 3.25+
 - A NUCLEO-H753ZI board and a way to flash it (ST-LINK via `st-flash`, the
   STM32CubeProgrammer CLI, or OpenOCD)
 - A serial terminal (for example `screen`, `minicom`, or `tio`) for the
