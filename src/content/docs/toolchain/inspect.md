@@ -1,12 +1,12 @@
 ---
 title: "tigris inspect"
-description: "Use tigris inspect to read the interface, operator costs and memory needs of a TFLite or ONNX model or a compiled .tgrs plan without compiling or running it."
+description: "Use tigris inspect to read the interface, operator costs and memory needs of a TFLite, ONNX or PyTorch model, an ExecuTorch program or a compiled .tgrs plan without compiling or running it."
 sidebar:
   order: 205
 ---
 
-Read what a TFLite or ONNX model contains, or what a compiled `.tgrs` plan records,
-without compiling or executing anything.
+Read what a TFLite, ONNX or PyTorch model contains, or what an ExecuTorch program
+or a compiled `.tgrs` plan records, without compiling or executing anything.
 
 ## Usage
 
@@ -20,7 +20,7 @@ The format is detected from the file contents, so the extension does not matter.
 
 | Flag | Type | Description |
 |------|------|-------------|
-| `MODEL` | path | TFLite model, ONNX model or `.tgrs` plan |
+| `MODEL` | path | TFLite model, ONNX model, PyTorch program (`.pt2`), ExecuTorch program (`.pte`) or `.tgrs` plan |
 | `-v`, `--verbose` | flag | Adds the per-step or per-stage tables and the full tensor listings |
 | `--json` | flag | Complete, versioned metadata as JSON |
 
@@ -79,6 +79,75 @@ weights it reads and its MACs, followed by the constants.
 
 An ONNX model is read as it declares itself: shapes are not inferred and external
 tensor data is not loaded. A figure that needs an undeclared shape shows as `?`.
+
+A PyTorch program saved with `torch.export.save` is exported to ONNX with
+`torch.onnx.export`, which needs `torch` and `onnxscript`, and reported as that
+ONNX model. The ONNX keeps the quantize and dequantize operators of a converted
+PT2E program and declares float32 at both ends; `analyze` and `compile` fold them
+into int8 operators:
+
+```text
+mbv2.pt2   PyTorch program, exported to ONNX, model main_graph, IR 10, opsets ai.onnx 20, 340 operators, 3.14 MiB
+  input    x                          1x3x96x96 float32
+  output   dequantize_per_tensor_78   1x1000 float32
+
+operators
+                     count      weights            MACs
+  Conv                  52   456.91 KiB   27%   10.65 M   89%
+  Gemm                   1     1.22 MiB   73%    1.28 M   11%
+  QuantizeLinear        67        274 B   <1%
+  Reshape                1         16 B   <1%
+  Clip                  35          8 B   <1%
+  DequantizeLinear     173
+  Add                   10
+  AveragePool            1
+  total                340     1.67 MiB         11.93 M
+
+largest activations
+  1x48x48x48 float32   432.00 KiB   step 21, Conv
+  1x48x48x48 float32   432.00 KiB   step 22, Clip
+  1x48x48x48 float32   432.00 KiB   step 24, DequantizeLinear
+
+initializers   306 dense, 0 sparse, 0 external
+
+Declared metadata: shapes are not inferred, external data is not loaded; ? marks a figure an undeclared shape hides.
+```
+
+## ExecuTorch programs
+
+For an ExecuTorch program lowered for Cortex-M, `inspect` reports its method,
+the kernels it was lowered for, its interface and the RAM the program records:
+
+```bash
+tigris inspect mbv2.pte
+```
+
+```text
+mbv2.pte   ExecuTorch program, 64 instructions, CMSIS-NN DSP kernels (Cortex-M4, M7, M33, M35P)
+  input    0   1x96x96x3 int8, dim order 0,2,3,1
+  output   0   1x1000 int8
+
+ExecuTorch RAM on Cortex-M, from the program
+  model memory       135.00 KiB   activations and CMSIS-NN scratch
+  method allocator    23.75 KiB   ExecuTorch's records for the method
+```
+
+- The first line counts the instructions of the method `forward` and names the
+  [kernel class](/toolchain/export/#kernel-class) the program was lowered for.
+- Each input and output shows its shape in memory order, the order in which a
+  `.bin` file for [`tigris run`](/toolchain/run/#input-layout) holds the
+  elements. `dim order` follows when PyTorch's order differs: this input is the
+  1x3x96x96 tensor PyTorch takes, kept channels last.
+- `model memory` is the planned buffer and `method allocator` what ExecuTorch
+  takes from the method allocator to load the method, both for a 32-bit
+  Cortex-M target. [`analyze`](/toolchain/analyze/#executorch-programs) adds the
+  temp allocator and what [`export`](/toolchain/export/#executorch-programs)
+  saves.
+
+`--json` reports `format` `pte` and a `program` object with the `method`, the
+`instructions`, the `cmsis_nn_classes`, the `inputs` and `outputs` with their
+`shape` in PyTorch's sizes and their `dim_order`, the `memory` in bytes and the
+`operators`.
 
 ## Compiled plans
 

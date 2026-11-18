@@ -1,11 +1,12 @@
 ---
 title: "tigris compile"
-description: "Use tigris compile to turn an ONNX or TFLite model into a binary .tgrs execution plan for a memory budget, with optional flash check, weight compression and execute-in-place."
+description: "Use tigris compile to turn an ONNX, TFLite or PyTorch model into a binary .tgrs execution plan for a memory budget, with optional flash check, weight compression and execute-in-place."
 sidebar:
   order: 220
 ---
 
-Compile an ONNX or TFLite model into a `.tgrs` execution plan for a memory budget.
+Compile an ONNX or TFLite model, or a PyTorch program saved as `.pt2`, into a
+`.tgrs` execution plan for a memory budget.
 `compile` prints the same report as [`tigris analyze`](/toolchain/analyze/), then
 writes the plan only if the model fits every budget given.
 
@@ -19,7 +20,7 @@ tigris compile MODEL -m FAST [-m SLOW] [-f FLASH] [-c lz4] [--xip] [-o PLAN]
 
 | Flag | Type | Description |
 |------|------|-------------|
-| `MODEL` | path | ONNX or TFLite model |
+| `MODEL` | path | ONNX or TFLite model, or PyTorch program (`.pt2`) |
 | `-m`, `--mem` | size, repeatable, required | Fast memory, then slow memory: `-m 32K -m 1M` or `-m 32K+1M` |
 | `-o`, `--output` | path | Plan to write; defaults to `MODEL.tgrs` |
 | `-f`, `--flash` | size | Flash for the plan; no plan is written when it is larger |
@@ -61,6 +62,44 @@ The report is `analyze`'s without the rows that need extra work: no other budget
 are tried, the slow traffic is not measured, LZ4 compression is not tried and the
 [`tigris export`](/toolchain/export/) search behind the `TFLite Micro export` row is
 not run. Use `analyze` for those, and [`inspect`](/toolchain/inspect/) to read the plan back.
+
+## PyTorch programs
+
+A `.pt2` archive, as `torch.export.save` writes it, compiles through
+`torch.onnx.export`, as [`analyze`](/toolchain/analyze/#pytorch-programs)
+describes. The report carries the `ExecuTorch model memory` row for the same
+program, measured when `executorch` is installed:
+
+```bash
+tigris compile mbv2.pt2 --int8-io -m 20K -o mbv2.tgrs
+```
+
+```text
+mbv2.pt2   int8, 65 operators
+  input    x                          1x3x96x96 int8 at scale 0.0317549, zero point 0
+  output   dequantize_per_tensor_78   1x1000 int8 at scale 0.00531865, zero point 10
+fits 20.00 KiB fast memory, 17 stages, 15 tiled
+
+memory
+  ExecuTorch model memory   135.00 KiB   planned buffer of its Cortex-M7 lowering: activations and CMSIS-NN scratch
+  unscheduled               135.00 KiB
+  largest tensor            108.00 KiB   1x48x48x48
+  this plan                  18.38 KiB   1.62 KiB headroom
+  slow memory                31.50 KiB
+
+flash
+  plan   1.67 MiB   weights 1.61 MiB, overhead 63.38 KiB
+
+wrote mbv2.tgrs   1.67 MiB
+```
+
+The ExecuTorch row is ExecuTorch's planned buffer, activations and CMSIS-NN
+scratch in one buffer. `this plan` and `slow memory` are the TiGrIS plan's
+activations in the fast and the slow pool; the CMSIS-NN backend adds its scratch
+to the fast arena, as `tigris_cmsis_nn_fast_arena_required()` reports.
+An ExecuTorch program (`.pte`) is already compiled for ExecuTorch;
+[`tigris export`](/toolchain/export/#executorch-programs) rewrites it to run in
+less RAM.
 
 ## When no plan is written
 

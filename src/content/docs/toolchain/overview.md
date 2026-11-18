@@ -15,10 +15,10 @@ and flags take the same command further instead of adding commands.
 | Does it fit my memory? If not, what stops it? | [`tigris analyze`](/toolchain/analyze/) |
 | What does the plan do at run time, load by load? | [`tigris analyze --trace`](/toolchain/analyze/#execution-trace) |
 | Write the plan. | [`tigris compile`](/toolchain/compile/) |
-| What does the plan compute on my machine? | [`tigris run`](/toolchain/run/) |
+| What does the plan or the model compute on my machine? | [`tigris run`](/toolchain/run/) |
 | Give me the C code for my target. | [`tigris codegen`](/toolchain/codegen/) |
 | Is there a precompiled model I can start from? | [`tigris zoo`](/toolchain/zoo/) |
-| Can TFLite Micro run my TFLite model in less memory? | [`tigris export`](/toolchain/export/) |
+| Can TFLite Micro or ExecuTorch run my model in less memory? | [`tigris export`](/toolchain/export/) |
 
 ## A session
 
@@ -85,12 +85,17 @@ plans whose fast arena, slow arena and size stay within those numbers.
 
 The format is read from the file contents, so the extension does not matter.
 
-| Command | ONNX | TFLite | `.tgrs` plan |
-|---|---|---|---|
-| `inspect` | yes | yes | yes |
-| `analyze`, `compile` | yes | yes | |
-| `run`, `codegen` | | | yes |
-| `export` | | yes | |
+| Command | ONNX | TFLite | PyTorch `.pt2` | ExecuTorch `.pte` | `.tgrs` plan |
+|---|---|---|---|---|---|
+| `inspect` | yes | yes | yes | yes | yes |
+| `analyze` | yes | yes | yes | yes | |
+| `compile` | yes | yes | yes | | |
+| `run` | | yes | | yes | yes |
+| `codegen` | | | | | yes |
+| `export` | | yes | | yes | |
+
+A `.pt2` archive is read through `torch.onnx.export` and needs `torch` and
+`onnxscript`; see [Compiling a PyTorch Model](/guides/pytorch-models/).
 
 ## Output
 
@@ -101,7 +106,9 @@ The format is read from the file contents, so the extension does not matter.
   with the same options would write no plan, and 0 otherwise; without `-m`, it exits
   with 1 when `compile` would write no plan at any fast budget. A file that
   cannot be read exits with 1, a wrong flag or a missing file with 2. `export`
-  exits with 1 when it writes no model, and the error names the reason.
+  exits with 1 when it refuses a model, and the error names the reason; it exits
+  with 3 when `--require-gain` finds no saving or a limit it was given is not
+  met, and then writes an unchanged copy.
 - Colors appear only on a terminal. Set `NO_COLOR` to turn them off there too.
 - JSON documents carry a version: `report` and `version` in `analyze --json`,
   `inspection_version` in `inspect --json`. Check it before reading further.

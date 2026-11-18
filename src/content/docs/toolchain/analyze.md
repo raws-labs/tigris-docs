@@ -1,18 +1,20 @@
 ---
 title: "tigris analyze"
-description: "Use tigris analyze to check whether an ONNX or TFLite model fits a memory budget, see what stops it when it does not, and trace one run of the plan on the host runtime."
+description: "Use tigris analyze to check whether an ONNX, TFLite or PyTorch model fits a memory budget, see what stops it when it does not, trace one run of the plan on the host runtime, and see what tigris export makes of an ExecuTorch program."
 sidebar:
   order: 210
 ---
 
 Check whether a model fits a memory budget before you compile it, and see what
 stops it when it does not. With `--trace`, run the plan once on the host runtime
-and see what it did.
+and see what it did. For an ExecuTorch program, see how much RAM
+[`tigris export`](/toolchain/export/) saves it, without writing a file.
 
 ## Usage
 
 ```bash
 tigris analyze MODEL -m FAST [-m SLOW] [-f FLASH] [-v | --trace | --json]
+tigris analyze MODEL.pte [--cpu CORE] [--allow-input-overwrite] [--max-extra-macs PERCENT] [--json]
 ```
 
 With `-m`, `analyze` exits 1 when `compile` with the same options would write no plan, and 0
@@ -24,7 +26,7 @@ to 32 bytes, with the slow memory given or unbounded without one.
 
 | Flag | Type | Description |
 |------|------|-------------|
-| `MODEL` | path | ONNX or TFLite model |
+| `MODEL` | path | ONNX or TFLite model, PyTorch program (`.pt2`, see [PyTorch programs](#pytorch-programs)) or ExecuTorch program (`.pte`, see [ExecuTorch programs](#executorch-programs)) |
 | `-m`, `--mem` | size, repeatable | Fast memory, then slow memory: `-m 32K -m 1M` or `-m 32K+1M`. Without `-m`, the model's own figures and the smallest budget are reported. |
 | `-f`, `--flash` | size | Flash for the plan; adds a flash verdict |
 | `-v`, `--verbose` | flag | Adds the stages table, or every event of a trace |
@@ -33,6 +35,9 @@ to 32 bytes, with the slow memory given or unbounded without one.
 | `--input` | path, repeatable | Input for `--trace`: `.bin` or `.npy`, `NAME=FILE` for several; zeros when omitted |
 | `--input-shape` | `NAME:1x3x224x224`, repeatable | Shape for an input the model leaves open; an open dimension is otherwise bound to 1 |
 | `--int8-io` | flag | Analyze the plan with its quantized inputs and outputs declared int8, as [`compile --int8-io`](/toolchain/compile/#model-interface) writes it |
+| `--cpu` | core | ExecuTorch program only: the firmware's Cortex-M core, as for [`export`](/toolchain/export/#kernel-class) |
+| `--allow-input-overwrite` | flag | ExecuTorch program only: let the rewrite reuse the model input's memory once it has been read |
+| `--max-extra-macs` | percent | ExecuTorch program only: limit on recomputed multiply-accumulates, `5%` or `5` |
 
 Sizes and the two memory pools are explained in the
 [CLI overview](/toolchain/overview/#memory-budgets).
@@ -96,10 +101,11 @@ change in each case.
 | Row | Meaning |
 |---|---|
 | `TFLite Micro arena` | For a single-graph TFLite model that [`tigris export`](/toolchain/export/) can read, with its buffers inside the FlatBuffer, and whose tensor types TFLite Micro's arena model knows: the arena head TFLite Micro's own memory planner places for the same file, its tensors plus the scratch buffers of `MEAN`, `SUM`, `REDUCE_MAX`, `REDUCE_MIN` and `REDUCE_ALL`. Other kernels' scratch and TFLite Micro's persistent allocations come on top. |
-| `TFLite Micro export` | How much TFLite Micro's arena goes down when [`tigris export`](/toolchain/export/) rewrites the model: the head before and after, the growth of the persistent allocations, the multiply-accumulates the rewrite adds, and last the kernels and target these figures are for, TFLite Micro's reference kernels on `arm-none-eabi`. Shown with the `TFLite Micro arena` row, as `none` and the reason when export would write nothing, followed by the kernels and target when the reason is that no rewrite lowers the arena. |
+| `TFLite Micro export` | How much TFLite Micro's arena goes down when [`tigris export`](/toolchain/export/) rewrites the model: the head before and after, the growth of the persistent allocations, the multiply-accumulates the rewrite adds, and last the kernels and target these figures are for, TFLite Micro's reference kernels on `arm-none-eabi`. Shown with the `TFLite Micro arena` row, as `none` and the reason when export would write nothing, followed by the kernels and target when the reason is that no smaller arena was found. |
+| `ExecuTorch model memory` | For a PyTorch program (`.pt2`): the planned buffer of ExecuTorch's Cortex-M7 lowering of the same program, which holds its activations and CMSIS-NN scratch. ExecuTorch's figure, read from the lowered program; `not measured` and the reason without `executorch`; see [PyTorch programs](#pytorch-programs). |
 | `unscheduled` | The activation peak if the whole model ran as one stage. |
 | `largest tensor` | The largest activation and its shape. |
-| `this plan` | The fast memory the plan uses, and the headroom left in the budget. |
+| `this plan` | The fast memory the plan's activations use, and the headroom left in the budget. A kernel library's scratch, such as CMSIS-NN's, comes on top in the fast arena at run time; [Runtime Integration](/runtime/integration/) sizes it. |
 | `slow memory` | What the tensors that cross stage boundaries need in the slow pool. |
 | `slow traffic` | Bytes written to and read back from slow memory in one inference, measured by running the plan once on the host runtime. It reads `not measured` with the reason when there is no host runtime or when a `While` loop's iteration count depends on the input values. It is absent when the plan does not fit the slow budget. |
 | `smallest budget` | The smallest fast budget that fits, to 32 bytes, with the slow memory given or unbounded without one, and the budget 32 bytes below it, which does not fit. `none` when `compile` writes no plan at any fast budget, with the reason: the slow memory given, the flash budget, or the runtime loader. Each budget tried is a full compile. |
@@ -231,6 +237,7 @@ then these sections:
 |---|---|
 | `model` | Name, format, dtype, interface, operator and tensor counts, unscheduled peak, largest tensor, unsupported operators |
 | `tflite_micro` | TFLite Micro's arena head, what it excludes, and `export` with what [`tigris export`](/toolchain/export/) finds for `arm-none-eabi`; `null` for an ONNX model and for a TFLite model without the `TFLite Micro arena` row |
+| `executorch` | For a `.pt2`: the `ExecuTorch model memory` row as `arena_bytes`, the `cpu` it is for, what it `includes`, and the `reason` when it was not measured; `null` for other models |
 | `fast` | Budget, verdict, scheduled peak, stage counts, every blocking stage with its reason |
 | `slow` | Budget, peak, whether it fits, measured `traffic` as `written` and `read` bytes or `null` |
 | `flash` | Budget, weight and plan bytes, whether it fits, estimates |
@@ -258,6 +265,85 @@ tigris analyze vww_96_int8.tflite -m 32K -m 1M --json
 ```
 
 `--json` and `--trace` are two different outputs; a command takes one of them.
+
+## PyTorch programs
+
+A `.pt2` archive, as `torch.export.save` writes it, is read through
+`torch.onnx.export`, so `analyze`, `compile` and `inspect` read it like the ONNX
+file that export gives. Reading it needs `torch` and `onnxscript`;
+[Compiling a PyTorch Model](/guides/pytorch-models/#install) installs both. The
+memory section adds what ExecuTorch needs for the same program, measured when
+`executorch` is installed as well:
+
+```bash
+tigris analyze mbv2.pt2 --int8-io -m 20K
+```
+
+```text
+mbv2.pt2   int8, 65 operators
+  input    x                          1x3x96x96 int8 at scale 0.0317549, zero point 0
+  output   dequantize_per_tensor_78   1x1000 int8 at scale 0.00531865, zero point 10
+fits 20.00 KiB fast memory, 17 stages, 15 tiled
+
+memory
+  ExecuTorch model memory   135.00 KiB   planned buffer of its Cortex-M7 lowering: activations and CMSIS-NN scratch
+  unscheduled               135.00 KiB
+  largest tensor            108.00 KiB   1x48x48x48
+  this plan                  18.38 KiB   1.62 KiB headroom
+  slow memory                31.50 KiB
+  slow traffic              219.23 KiB   per inference: 68.48 KiB written, 150.75 KiB read
+  smallest budget             3.31 KiB   3.28 KiB does not fit
+
+flash
+  plan   1.67 MiB   weights 1.61 MiB, overhead 63.38 KiB
+```
+
+`analyze` lowers the program for Cortex-M7 with ExecuTorch's Cortex-M backend
+and reads the size of the planned buffer from the
+result: the one buffer ExecuTorch runs the model in, activations and CMSIS-NN
+scratch together. The TiGrIS rows below it count the plan's activations: 18.38
+KiB in fast memory and 31.50 KiB in slow memory for this plan, with CMSIS-NN's
+scratch, 5.00 KiB for this model, on top in the fast arena. When the row cannot
+be measured it reads `not measured` and the reason, for example
+`executorch is not installed` or `its Cortex-M lowering failed:` and the first
+line of ExecuTorch's error.
+
+Each command exports the program again, which takes seconds; for a model you
+analyze often, the ONNX file the guide writes reads faster.
+
+## ExecuTorch programs
+
+For an ExecuTorch program lowered for Cortex-M, `analyze` runs the search of
+[`tigris export`](/toolchain/export/#executorch-programs) and prints what it
+finds, without writing a file:
+
+```bash
+tigris analyze mbv2.pte
+```
+
+```text
+mbv2.pte   ExecuTorch program, 64 instructions, CMSIS-NN DSP kernels (Cortex-M4, M7, M33, M35P)
+
+ExecuTorch RAM on Cortex-M, from the program
+  as lowered            159.19 KiB   model memory 135.00 KiB, method 23.75 KiB, temp 448 B
+  after tigris export    67.22 KiB   2.37x less; model memory 37.50 KiB, method 29.28 KiB, temp 448 B; +3.67% MACs
+  plus the runner's own input and output buffers, stack and statics
+```
+
+Each row is ExecuTorch's total for the program, computed from the file: the
+model memory in its planned buffer, the method allocator and the temp allocator,
+as [`export`](/toolchain/export/#memory) defines them. `after tigris export`
+adds the ratio to the program as lowered and the multiply-accumulates the bands
+recompute. When export finds nothing smaller, the row repeats the total with
+`no smaller total found`.
+
+`--cpu`, `--allow-input-overwrite` and `--max-extra-macs` work as for `export`.
+The budgets and the plan options apply to models `tigris` compiles, so `-m` with
+a `.pte` stops with `Error: -m applies to ONNX, TFLite and .pt2 models`.
+`analyze` exits with 1 for a program `export` refuses, with the same error, and
+0 otherwise. `--json` prints `report`, `version`, `model` with `format` `pte`,
+and `executorch_export` with the fields of
+[`export --json`](/toolchain/export/#json).
 
 ## Examples
 
