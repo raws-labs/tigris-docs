@@ -30,6 +30,7 @@ memory
   largest tensor      4.59 MiB   1x96x112x112
   this plan         250.00 KiB   6.00 KiB headroom
   slow memory         5.17 MiB
+  fast + slow         5.41 MiB   RAM when one SRAM holds both arenas
   slow traffic       20.25 MiB   per inference: 7.21 MiB written, 13.04 MiB read
   smallest budget    37.50 KiB   37.47 KiB does not fit
 
@@ -90,6 +91,32 @@ Tensors that cross a stage boundary are written to the slow pool and read back. 
 second `-m` sizes that pool: `-m 256K+8M` gives 256 KiB of fast arena and 8 MiB of
 slow. Without a second `-m`, `slow memory` reports what the plan needs and the compile
 does not check it; the application has to provide that much.
+
+### Fast and slow share one SRAM
+
+On a part with one SRAM and no external memory, both pools come out of the same
+RAM, and `fast + slow` is the figure that has to fit. It does not fall as the budget
+falls: a small `-m` cuts the model into many stages, and their spills fill the slow
+pool. The int8 model:
+
+| `-m` | This plan | Slow memory | Fast + slow |
+|---|---|---|---|
+| 32K | 31.81 KiB | 1.44 MiB | 1.47 MiB |
+| 64K | 62.50 KiB | 1.29 MiB | 1.35 MiB |
+| 128K | 126.22 KiB | 220.50 KiB | 346.72 KiB |
+| 256K | 247.62 KiB | 343.00 KiB | 590.62 KiB |
+| 512K | 507.94 KiB | 257.25 KiB | 765.19 KiB |
+
+Its unscheduled peak is 1.44 MiB. At 32K the total is above it, and the row says so:
+
+```text
+  fast + slow        1.47 MiB   31.81 KiB above unscheduled: on one SRAM this plan saves no RAM
+```
+
+Try a few budgets and keep the one with the smallest total; for this model that is
+128K, under a quarter of the unscheduled peak. A second `-m` caps the slow pool, so
+`-m 128K+256K` stops the compile when a change to the model pushes the total past
+384 KiB.
 
 ### The plan does not fit flash
 
@@ -169,6 +196,7 @@ memory
   largest tensor     1.15 MiB   1x96x112x112
   this plan         62.50 KiB   1.50 KiB headroom
   slow memory        1.29 MiB
+  fast + slow        1.35 MiB   RAM when one SRAM holds both arenas
   slow traffic       5.07 MiB   per inference: 1.80 MiB written, 3.26 MiB read
   smallest budget    9.38 KiB   9.34 KiB does not fit
 

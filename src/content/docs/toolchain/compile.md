@@ -51,6 +51,7 @@ memory
   largest tensor       36.00 KiB   1x48x48x16
   this plan            28.22 KiB   3.78 KiB headroom
   slow memory          45.00 KiB   budget 1.00 MiB
+  fast + slow          73.22 KiB   19.22 KiB above unscheduled: on one SRAM this plan saves no RAM
 
 flash
   plan   239.32 KiB   weights 213.93 KiB, overhead 25.39 KiB
@@ -86,6 +87,7 @@ memory
   largest tensor            108.00 KiB   1x48x48x48
   this plan                  18.38 KiB   1.62 KiB headroom
   slow memory                31.50 KiB
+  fast + slow                49.88 KiB   RAM when one SRAM holds both arenas
 
 flash
   plan   1.67 MiB   weights 1.61 MiB, overhead 63.38 KiB

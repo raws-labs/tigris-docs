@@ -61,6 +61,7 @@ memory
   largest tensor         36.00 KiB   1x48x48x16
   this plan              28.22 KiB   3.78 KiB headroom
   slow memory            45.00 KiB   budget 1.00 MiB
+  fast + slow            73.22 KiB   19.22 KiB above unscheduled: on one SRAM this plan saves no RAM
   slow traffic          109.13 KiB   per inference: 18.00 KiB written, 91.12 KiB read
   smallest budget         2.50 KiB   with 1.00 MiB slow memory; 2.47 KiB does not fit
 
@@ -105,8 +106,9 @@ change in each case.
 | `ExecuTorch model memory` | For a PyTorch program (`.pt2`): the planned buffer of ExecuTorch's Cortex-M7 lowering of the same program, which holds its activations and CMSIS-NN scratch. ExecuTorch's figure, read from the lowered program; `not measured` and the reason without `executorch`; see [PyTorch programs](#pytorch-programs). |
 | `unscheduled` | The activation peak if the whole model ran as one stage. |
 | `largest tensor` | The largest activation and its shape. |
-| `this plan` | The fast memory the plan's activations use, and the headroom left in the budget. A kernel library's scratch, such as CMSIS-NN's, comes on top in the fast arena at run time; [Runtime Integration](/runtime/integration/) sizes it. |
+| `this plan` | The fast memory the plan uses, its activations plus the decompressed weights of an LZ4 plan, and the headroom left in the budget. A kernel library's scratch, such as CMSIS-NN's, comes on top in the fast arena at run time; [Runtime Integration](/runtime/integration/) sizes it. |
 | `slow memory` | What the tensors that cross stage boundaries need in the slow pool. |
+| `fast + slow` | `this plan` plus `slow memory`: the RAM a part needs when one SRAM holds both arenas. Shown when the plan uses slow memory, and flagged when it is not below `unscheduled`, since on such a part the plan then needs more RAM than the model run as one stage. |
 | `slow traffic` | Bytes written to and read back from slow memory in one inference, measured by running the plan once on the host runtime. It reads `not measured` with the reason when there is no host runtime or when a `While` loop's iteration count depends on the input values. It is absent when the plan does not fit the slow budget. |
 | `smallest budget` | The smallest fast budget that fits, to 32 bytes, with the slow memory given or unbounded without one, and the budget 32 bytes below it, which does not fit. `none` when `compile` writes no plan at any fast budget, with the reason: the slow memory given, the flash budget, or the runtime loader. Each budget tried is a full compile. |
 
@@ -291,6 +293,7 @@ memory
   largest tensor            108.00 KiB   1x48x48x48
   this plan                  18.38 KiB   1.62 KiB headroom
   slow memory                31.50 KiB
+  fast + slow                49.88 KiB   RAM when one SRAM holds both arenas
   slow traffic              219.23 KiB   per inference: 68.48 KiB written, 150.75 KiB read
   smallest budget             3.31 KiB   3.28 KiB does not fit
 
