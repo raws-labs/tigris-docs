@@ -176,6 +176,8 @@ operators
 
 memory
   fast arena     64.00 KiB
+  slow arena    192.00 KiB
+  fast + slow   256.00 KiB   RAM when one SRAM holds both arenas
   unscheduled   384.00 KiB
   weights         3.09 MiB   read in place (XIP), uncompressed
 
@@ -186,6 +188,8 @@ runtime build   default limits suffice
   it includes the buffer that decompressed weights occupy, sized for the largest tensor
   alignment the runtime supports, so on a target with smaller alignment it is an upper
   bound.
+- `slow arena` is what the runtime requires for the plan's slow arena, and `fast + slow`
+  the sum of both, the RAM when one SRAM holds both arenas.
 - `unscheduled` is the activation peak the compiler recorded for the model run as one
   stage.
 - `state`, shown for a stateful plan, is the memory kept between runs.

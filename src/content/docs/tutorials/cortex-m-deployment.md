@@ -156,7 +156,9 @@ on the original float model shows accuracy, not the exact output.
 
 - **NUCLEO-F446RE** (Cortex-M4F, 128 KiB SRAM): build with
   `-DTIGRIS_BOARD=nucleo_f446re`. The smaller SRAM is the binding constraint:
-  keep the `-m` budget and the fast arena within 128 KiB.
+  both arenas share its 128 KiB, so the `fast + slow` row of `tigris analyze`
+  plus the CMSIS-NN scratch has to fit, with room left for the firmware's
+  stack and data.
 - **Raspberry Pi Pico 2 / RP2350** (Cortex-M33): a separate pico-sdk build
   producing a `.uf2`. See the package's
   [README](https://github.com/raws-labs/tigris-cortex-m#readme) for the
