@@ -147,10 +147,12 @@ and its cycle count.
 
 To confirm the deployment, run the same plan and input on the host with
 `tigris run`, which uses the portable int8 reference kernels, and compare the
-INT8 vectors. CMSIS-NN kernels can round one step apart from the reference
-kernels, so expect agreement within 1 LSB; a larger difference usually means
-the input fed on-device differs from the one you compared against. ONNX Runtime
-on the original float model shows accuracy, not the exact output.
+INT8 vectors. The CMSIS-NN kernels return the same INT8 output as the reference
+kernels, byte for byte, so any difference means the input fed on-device differs
+from the one you compared against, or is a defect worth reporting. The compiler's
+tests check this on CMSIS-NN's portable C kernels; the DSP and vector kernels are
+checked on the benchmark boards. ONNX Runtime on the original float model shows
+accuracy, not the exact output.
 
 ## Adapting to other boards
 
