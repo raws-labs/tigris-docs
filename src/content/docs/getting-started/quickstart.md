@@ -30,7 +30,8 @@ bundles the runtime that steps 3 and 5 use. See
 curl -LO https://github.com/mlcommons/tiny/raw/master/benchmark/training/visual_wake_words/trained_models/vww_96_int8.tflite
 ```
 
-Any int8 or float32 `.tflite` or ONNX file works the same way. This one is also in
+Any int8 or float32 `.tflite` or ONNX file works the same way, and so does a PyTorch
+`.pt2` archive ([Compiling a PyTorch Model](/guides/pytorch-models/)). This one is also in
 the compiler's test suite, where its outputs are checked against TFLite Micro
 byte for byte.
 
@@ -214,7 +215,10 @@ To start from a model that is already compiled and validated, see
 
 ## What's next
 
+- [What Is TiGrIS](/getting-started/what-is-tigris/): what the compiler does and where its result runs
 - [CLI Overview](/toolchain/overview/): every command and the flags that add depth
 - [Core Concepts](/getting-started/concepts/): stages, tiling, memory pools, execute-in-place
 - [Compiling a TFLite Model](/guides/tflite-models/): which operators convert, with which limits
+- [Compiling a PyTorch Model](/guides/pytorch-models/): PT2E quantization, `.pt2` input, ExecuTorch export
+- [`tigris export`](/toolchain/export/): keep TFLite Micro or ExecuTorch, in less RAM
 - [Introducing TiGrIS](/blog/introducing-tigris/): measurements on hardware
