@@ -498,6 +498,15 @@ The head is the same on every target. The persistent growth, and so the total,
 differs: on `lp64` the example grows by 3.17 KiB, for a total change of
 -23.83 KiB. Export can pick a different run or band count for another target.
 
+### On a device
+
+Int8 MobileNetV2 0.35 at 224x224 does not fit TFLite Micro's arena on a
+NUCLEO-H753ZI (`ARENA_TOO_SMALL`). After `tigris export`, stock TFLite Micro with
+CMSIS-NN kernels runs it with a measured SRAM peak of 423,684 B, and its outputs
+match the TiGrIS plan's. `tigris analyze` plans 349 KiB for the exported model, a
+figure for TFLite Micro's reference kernels. The run is recorded in
+[tigris-bench](https://github.com/raws-labs/tigris-bench).
+
 ## In analyze
 
 For a TFLite model that gets the `TFLite Micro arena` row,
