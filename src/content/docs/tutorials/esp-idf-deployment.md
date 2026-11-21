@@ -136,11 +136,13 @@ just the partition then deploys a new model with no rebuild.
 
 ## Check the output against the host
 
-The runtime produces the same INT8 output on the device as the reference kernels
-do on the host, within the INT8 requant tolerance. Run the same plan and input
-through the host (the `reference` backend, or ONNX Runtime on the original float
-model) and compare. A large divergence usually means the on-device input differs
-from the one you compared against.
+The runtime returns the same INT8 output on the device as the reference kernels
+do on the host, byte for byte, with or without ESP-NN. Run the same plan and
+input on the host with `tigris run` and compare the INT8 vectors. A difference
+usually means the on-device input differs from the one you compared against. The
+compiler's tests check this on ESP-NN's portable C kernels; the ESP32-S3
+assembly kernels are checked on the benchmark board. ONNX Runtime on the
+original float model shows accuracy, not the exact output.
 
 ## Troubleshooting
 
