@@ -19,7 +19,8 @@ Documentation site for TiGrIS at tigris-ml.dev: Astro Starlight docs, a native A
 
 ## Gotchas
 - Top-level docs describe the compiler's integration branch and are labelled `develop` in the version selector; archived versions under a slug describe releases. Track `develop` as it moves, and archive a version at a release rather than holding edits back.
-- Archiving a version also copies the current capability artifact to `src/data/operator_capabilities_v1.<version>.json` and refreshes the unversioned one from the compiler, so each documented line keeps its own matrix.
+- Archive a release with `node scripts/archive-version.mjs X.Y.Z --capabilities <operator-capabilities-v1.json at the release tag>`: it does the whole freeze above, including the `CapabilityMatrix.astro` entry and versioned absolute links, and refuses an existing version.
+- Archiving a version stores the release tag's capability artifact as `src/data/operator_capabilities_v1.<version>.json`. The unversioned file describes the develop docs, so it is refreshed from the compiler's `develop` artifact, never from the tag. Each documented line keeps its own matrix.
 - Because `ThemeSelect` and `PageTitle` are overridden, `starlight-versions` does not inject its own UI; `Header.astro` renders `VersionSelect` and `PageTitle.astro` renders the plugin's `VersionNotice` by hand.
 - Docs code blocks use Expressive Code (github-dark/github-light, flat frames via `styleOverrides`); the blog uses Astro's Shiki config, with dark token colors carried as `--shiki-dark` vars toggled in the blog layout CSS.
 - `main` is the only branch; `editLink` points at `raws-labs/tigris-docs/edit/main/`.
